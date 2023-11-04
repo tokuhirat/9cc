@@ -35,13 +35,24 @@ bool consume(char *op) {
     return true;
 }
 
+// 次のトークンが識別子のときには、識別子のトークンを返し、
+// トークンを１つ読み進める。それ以外の場合にはNULLを返す。
+Token *consume_ident() {
+    if (token->kind != TK_IDENT){
+        return false;
+    }
+    Token *tok = token;
+    token = token->next;
+    return tok;
+}
+
 // 次のトークンが期待している記号の時にはトークンを１つ読み進める。
 // それ以外の場合にはエラーを報告する。
 void expect(char *op) {
     if (token->kind != TK_RESERVED ||
         strlen(op) != token->len ||
         memcmp(token->str, op, token->len))
-        error_at(token->str, "'%c'ではありません", op);
+        error_at(token->str, "'%s'ではありません", op);
     token = token->next;
 }
 
@@ -89,7 +100,7 @@ Token *tokenize(char *p) {
             continue;
         }
 
-        if (strchr("+-*/()<>", *p)) {
+        if (strchr("+-*/()<>;", *p)) {
             cur = new_token(TK_RESERVED, cur, p++, 1);
             continue;
         }
@@ -99,6 +110,11 @@ Token *tokenize(char *p) {
             char *q = p;
             cur->val = strtol(p, &p, 10);
             cur->len = p - q;
+            continue;
+        }
+
+        if ('a' <= *p && *p <= 'z'){
+            cur = new_token(TK_IDENT, cur, p++, 1);
             continue;
         }
 
