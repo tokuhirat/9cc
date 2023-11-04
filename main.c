@@ -9,6 +9,9 @@ char *user_input;
 // stmt保管用
 Node *code[100];
 
+// ローカル変数
+LVar *locals;
+
 int main(int argc, char **argv) {
     if (argc != 2) {
         error("引数の個数が正しくありません");
@@ -27,10 +30,13 @@ int main(int argc, char **argv) {
     printf("main:\n");
 
     // プロローグ
-    // 変数26個分の領域を確保する
+    // 変数の個数分の領域を確保する
+    int i = 0;
+    for (LVar *var = locals; var; var = var->next)
+        i++;
     printf("  push rbp\n");
     printf("  mov rbp, rsp\n");
-    printf("  sub rsp, 208\n");
+    printf("  sub rsp, %d\n", i * 8);
 
     // 先頭の式から順にコード生成
     for (int i = 0; code[i]; i++){
