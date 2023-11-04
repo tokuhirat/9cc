@@ -80,6 +80,16 @@ bool startswith(char *p, char *q) {
     return memcmp(p, q, strlen(q)) == 0;
 }
 
+bool is_ident1(char c) {
+    return (('a' <= c && c <= 'z') ||
+        ('A' <= c && c <= 'Z')
+        || c == '_');
+}
+
+bool is_ident2(char c) {
+    return is_ident1(c) || ('0' <= c && c <= '9');
+}
+
 // 入力文字列pをトークナイズしてそれを返す
 Token *tokenize(char *p) {
     Token head;
@@ -113,17 +123,12 @@ Token *tokenize(char *p) {
             continue;
         }
 
-        if ('a' <= *p && *p <= 'z'){
+        if (is_ident1(*p)){
             char *q = p;
-            p++;
-            int len = 1;
-            while (('a' <= *p && *p <= 'z') ||
-                ('A' <= *p && *p <= 'Z') || '_' == *p ||
-                ('0' <= *p && *p <= '9')){
+            do {
                 p++;
-                len++;
-            }
-            cur = new_token(TK_IDENT, cur, q, len);
+            } while (is_ident2(*p));
+            cur = new_token(TK_IDENT, cur, q, p - q);
             continue;
         }
 
