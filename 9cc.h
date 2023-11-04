@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+//
+// tokenize.c
+//
 // トークンの種類
 typedef enum {
     TK_RESERVED,  // 記号
@@ -22,6 +25,15 @@ struct Token {
     int len;  // トークンの長さ
 };
 
+void error_at(char *loc, char *fmt, ...);
+Token *tokenize(char *p);
+bool consume(char *op);
+void expect(char *op);
+int expect_number();
+
+//
+// parse.c
+//
 // 抽象構文木のノードの種類
 typedef enum {
     ND_ADD,  // +
@@ -44,19 +56,18 @@ struct Node {
     int val;  // kindがND_NUMの場合のみ使う
 };
 
+Node *expr();
+
+//
+// codegen.c
+//
+void gen(Node *node);
+
+//
+// main.c
+//
 // 現在着目しているトークン
 extern Token *token;
 
 // 入力プログラム
 extern char *user_input;
-
-void error_at(char *loc, char *fmt, ...);
-Token *tokenize(char *p);
-void gen(Node *node);
-Node *expr();
-Node *equality();
-Node *relational();
-Node *add();
-Node *mul();
-Node *unary();
-Node *primary();
