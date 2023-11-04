@@ -88,12 +88,17 @@ bool at_eof() {
 }
 
 // 新しいトークンを作成してcurに繋げる
-Token *new_token(TokenKind kind, Token *cur, char *str) {
+Token *new_token(TokenKind kind, Token *cur, char *str, int len) {
     Token *tok = calloc(1, sizeof(Token));
     tok->kind = kind;
     tok->str = str;
+    tok->len = len;
     cur->next = tok;
     return tok;
+}
+
+bool startswith(char *p, char *q) {
+    return memcmp(p, q, strlen(q)) == 0;
 }
 
 // 入力文字列pをトークナイズしてそれを返す
@@ -109,33 +114,30 @@ Token *tokenize(char *p) {
             continue;
         }
 
-        if (! strncmp(p, "==", 2) ||
-            ! strncmp(p, "!=", 2) ||
-            ! strncmp(p, ">=", 2) ||
-            ! strncmp(p, "<=", 2)) {
-            cur = new_token(TK_RESERVED, cur, p);
-            cur->len = 2;
+        if (startswith(p, "==") || startswith(p, "!=") ||
+            startswith(p, "<=") || startswith(p, ">=")) {
+            cur = new_token(TK_RESERVED, cur, p, 2);
             p += 2;
             continue;
         }
 
         if (strchr("+-*/()<>", *p)) {
-            cur = new_token(TK_RESERVED, cur, p++);
-            cur->len = 1;
+            cur = new_token(TK_RESERVED, cur, p++, 1);
             continue;
         }
 
         if (isdigit(*p)) {
-            cur = new_token(TK_NUM, cur, p);
+            cur = new_token(TK_NUM, cur, p, 0);
+            char *q = p;
             cur->val = strtol(p, &p, 10);
-            cur->len = p - cur->str;
+            cur->len = p - q;
             continue;
         }
 
         error_at(p, "トークナイズできません");
     }
 
-    new_token(TK_EOF, cur, p);
+    new_token(TK_EOF, cur, p, 0);
     return head.next;
 }
 
@@ -147,11 +149,9 @@ typedef enum {
     ND_DIV,  // +
     ND_NUM,  // 整数
     ND_EQ,  // ==
-    ND_NEQ,  // !=
+    ND_NE,  // !=
     ND_LT,  // <
     ND_LE,  // <=
-    ND_GT,  // >
-    ND_GE,  // >=
 } NodeKind;
 
 typedef struct Node Node;
@@ -164,17 +164,22 @@ struct Node {
     int val;  // kindがND_NUMの場合のみ使う
 };
 
-Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
+
+Node *new_node(NodeKind kind) {
     Node *node = calloc(1, sizeof(Node));
     node->kind = kind;
+    return node;
+}
+
+Node *new_binary(NodeKind kind, Node *lhs, Node *rhs) {
+    Node *node = new_node(kind);
     node->lhs = lhs;
     node->rhs = rhs;
     return node;
 }
 
-Node *new_node_num(int val) {
-    Node *node = calloc(1, sizeof(Node));
-    node->kind = ND_NUM;
+Node *new_num(int val) {
+    Node *node= new_node(ND_NUM);
     node->val = val;
     return node;
 }
@@ -196,9 +201,9 @@ Node *equality() {
 
     for (;;) {
         if (consume("=="))
-            node = new_node(ND_EQ, node, relational());
+            node = new_binary(ND_EQ, node, relational());
         else if (consume("!="))
-            node = new_node(ND_NEQ, node, relational());
+            node = new_binary(ND_NE, node, relational());
         else
             return node;
     }
@@ -209,13 +214,13 @@ Node *relational() {
 
     for (;;) {
         if (consume("<"))
-            node = new_node(ND_LT, node, add());
+            node = new_binary(ND_LT, node, add());
         else if (consume("<="))
-            node = new_node(ND_LE, node, add());
+            node = new_binary(ND_LE, node, add());
         else if (consume(">"))
-            node = new_node(ND_LT, add(), node);
+            node = new_binary(ND_LT, add(), node);
         else if (consume(">="))
-            node = new_node(ND_LE, add(), node);
+            node = new_binary(ND_LE, add(), node);
         else
             return node;
     }
@@ -226,9 +231,9 @@ Node *add() {
 
     for (;;) {
         if (consume("+"))
-            node = new_node(ND_ADD, node, mul());
+            node = new_binary(ND_ADD, node, mul());
         else if (consume("-"))
-            node = new_node(ND_SUB, node, mul());
+            node = new_binary(ND_SUB, node, mul());
         else
             return node;
     }
@@ -239,9 +244,9 @@ Node *mul() {
 
     for (;;) {
         if (consume("*"))
-            node = new_node(ND_MUL, node, unary());
+            node = new_binary(ND_MUL, node, unary());
         else if (consume("/"))
-            node = new_node(ND_DIV, node, unary());
+            node = new_binary(ND_DIV, node, unary());
         else
             return node;
     }
@@ -251,7 +256,7 @@ Node *unary() {
     if (consume("+"))
         return unary();
     if (consume("-"))
-        return new_node(ND_SUB, new_node_num(0), unary());
+        return new_binary(ND_SUB, new_num(0), unary());
     return primary();
 }
 
@@ -264,7 +269,7 @@ Node *primary() {
     }
 
     // そうでなければ数値のはず
-    return new_node_num(expect_number());
+    return new_num(expect_number());
 }
 
 void gen(Node *node) {
@@ -298,7 +303,7 @@ void gen(Node *node) {
         printf("  sete al\n");
         printf("  movzb rax, al\n");
         break;
-    case ND_NEQ:
+    case ND_NE:
         printf("  cmp rax, rdi\n");
         printf("  setne al\n");
         printf("  movzb rax, al\n");
