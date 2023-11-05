@@ -35,6 +35,16 @@ bool consume(char *op) {
     return true;
 }
 
+// 次のトークンが期待している記号のときには、真を返す。それ以外の場合には偽を返す。
+// トークンは消費しない。
+bool check_token(char *op) {
+    if (token->kind != TK_RESERVED ||
+        strlen(op) != token->len ||
+        memcmp(token->str, op, token->len))
+        return false;
+    return true;
+}
+
 // 次のトークンが識別子のときには、識別子のトークンを返し、
 // トークンを１つ読み進める。それ以外の場合にはfalseを返す。
 Token *consume_ident() {
@@ -80,6 +90,16 @@ bool consume_else() {
 // 真を返す。それ以外の場合には偽を返す。
 bool consume_while() {
     if (token->kind != TK_WHILE){
+        return false;
+    }
+    token = token->next;
+    return true;
+}
+
+// 次のトークンがforのときには、トークンを１つ読み進めて
+// 真を返す。それ以外の場合には偽を返す。
+bool consume_for() {
+    if (token->kind != TK_FOR){
         return false;
     }
     token = token->next;
@@ -171,6 +191,12 @@ Token *tokenize(char *p) {
         if (strncmp(p, "while", 5) == 0 && !is_alnum(p[5])) {
             cur = new_token(TK_WHILE, cur, p, 5);
             p += 5;
+            continue;
+        }
+
+        if (strncmp(p, "for", 3) == 0 && !is_alnum(p[3])) {
+            cur = new_token(TK_FOR, cur, p, 3);
+            p += 3;
             continue;
         }
 

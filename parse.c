@@ -90,6 +90,24 @@ Node *stmt() {
         node->lhs = stmt_node;
         node->cond = cond_node;
         return node;
+    } else if (consume_for()) {
+        node = calloc(1, sizeof(Node));
+        node->kind = ND_FOR;
+        expect("(");
+        if (!check_token(";")) {
+            node->for_init = expr();
+        }
+        expect(";");
+        if (!check_token(";")) {
+            node->cond = expr();  // 終了判定部分
+        }
+        expect(";");
+        if (!consume(")")) {
+            node->lhs = expr();  // 更新部分
+            expect(")");
+        }
+        node->rhs = stmt();  // 本体
+        return node;
     } else {
         node = expr();
         expect(";");
