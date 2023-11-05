@@ -15,6 +15,7 @@ typedef enum {
     TK_NUM,  // 整数トークン
     TK_EOF,  // 入力の終わりを表すトークン
     TK_RETURN,  // returnを表すトークン
+    TK_IF,  // ifを表すトークン
 } TokenKind;
 
 // トークン型
@@ -42,6 +43,7 @@ Token *tokenize(char *p);
 bool consume(char *op);
 Token *consume_ident();
 bool consume_return();
+bool consume_if();
 void expect(char *op);
 int expect_number();
 
@@ -62,6 +64,7 @@ typedef enum {
     ND_ASSIGN,  // =
     ND_LVAR,  // ローカル変数
     ND_RETURN,  // return
+    ND_IF,  // if
 } NodeKind;
 
 // 抽象構文木のノードの型
@@ -72,6 +75,7 @@ struct Node {
     Node *rhs;  // 右辺
     int val;  // kindがND_NUMの場合のみ使う
     int offset;  // kindがND_LVARの場合のみ使う
+    Node *cond;  // kindがND_IFの場合のみ使う
 };
 
 void program();
@@ -95,3 +99,6 @@ extern Node *code[100];
 
 // ローカル変数
 extern LVar *locals;
+
+// ラベル通し番号
+extern int lend_num;

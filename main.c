@@ -12,6 +12,9 @@ Node *code[100];
 // ローカル変数
 LVar *locals;
 
+// ラベル通し番号
+int lend_num = 0;
+
 int main(int argc, char **argv) {
     if (argc != 2) {
         error("引数の個数が正しくありません");
@@ -22,7 +25,7 @@ int main(int argc, char **argv) {
     // 結果はcodeに保存される。
     user_input = argv[1];
     token = tokenize(user_input);
-    program();    
+    program();
 
     // アセンブリの前半部分を出力
     printf(".intel_syntax noprefix\n");

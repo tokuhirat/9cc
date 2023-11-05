@@ -61,12 +61,24 @@ Node *stmt() {
         node = calloc(1, sizeof(Node));
         node->kind = ND_RETURN;
         node->lhs = expr();
+        expect(";");
+        return node;
+    } else if (consume_if()) {
+        // if文の場合
+        expect("(");
+        Node *cond_node = expr();
+        expect(")");
+        Node *stmt_node = stmt();
+        node = calloc(1, sizeof(Node));
+        node->kind = ND_IF;
+        node->lhs = stmt_node;  // lhsをthen節とする
+        node->cond = cond_node;
+        return node;
     } else {
         node = expr();
+        expect(";");
+        return node;
     }
-
-    expect(";");
-    return node;
 }
 
 Node *expr() {

@@ -18,6 +18,17 @@ void gen(Node *node) {
         printf("  ret\n");
         return;
     }
+    if (node->kind == ND_IF) {
+        gen(node->cond);
+        int then_label_num = lend_num;
+        printf("  pop rax\n");
+        printf("  cmp rax, 0\n");
+        printf("  je .Lend%d\n", then_label_num);
+        lend_num++;
+        gen(node->lhs);
+        printf(".Lend%d:\n", then_label_num);
+        return;
+    }
     switch (node->kind) {
     case ND_NUM:
         printf("  push %d\n", node->val);

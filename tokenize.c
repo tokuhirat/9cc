@@ -56,6 +56,16 @@ bool consume_return() {
     return true;
 }
 
+// 次のトークンがifのときには、トークンを１つ読み進めて
+// 真を返す。それ以外の場合には偽を返す。
+bool consume_if() {
+    if (token->kind != TK_IF){
+        return false;
+    }
+    token = token->next;
+    return true;
+}
+
 // 次のトークンが期待している記号の時にはトークンを１つ読み進める。
 // それ以外の場合にはエラーを報告する。
 void expect(char *op) {
@@ -123,6 +133,12 @@ Token *tokenize(char *p) {
         if (strncmp(p, "return", 6) == 0 && !is_alnum(p[6])) {
             cur = new_token(TK_RETURN, cur, p, 6);
             p += 6;
+            continue;
+        }
+
+        if (strncmp(p, "if", 2) == 0 && !is_alnum(p[2])) {
+            cur = new_token(TK_IF, cur, p, 2);
+            p += 2;
             continue;
         }
 
