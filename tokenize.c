@@ -76,6 +76,16 @@ bool consume_else() {
     return true;
 }
 
+// 次のトークンがwhileのときには、トークンを１つ読み進めて
+// 真を返す。それ以外の場合には偽を返す。
+bool consume_while() {
+    if (token->kind != TK_WHILE){
+        return false;
+    }
+    token = token->next;
+    return true;
+}
+
 // 次のトークンが期待している記号の時にはトークンを１つ読み進める。
 // それ以外の場合にはエラーを報告する。
 void expect(char *op) {
@@ -155,6 +165,12 @@ Token *tokenize(char *p) {
         if (strncmp(p, "else", 4) == 0 && !is_alnum(p[4])) {
             cur = new_token(TK_ELSE, cur, p, 4);
             p += 4;
+            continue;
+        }
+
+        if (strncmp(p, "while", 5) == 0 && !is_alnum(p[5])) {
+            cur = new_token(TK_WHILE, cur, p, 5);
+            p += 5;
             continue;
         }
 

@@ -17,6 +17,7 @@ typedef enum {
     TK_RETURN,  // returnを表すトークン
     TK_IF,  // ifを表すトークン
     TK_ELSE,  // elseを表すトークン
+    TK_WHILE,  // whileを表すトークン
 } TokenKind;
 
 // トークン型
@@ -46,6 +47,7 @@ Token *consume_ident();
 bool consume_return();
 bool consume_if();
 bool consume_else();
+bool consume_while();
 void expect(char *op);
 int expect_number();
 
@@ -68,6 +70,7 @@ typedef enum {
     ND_RETURN,  // return
     ND_IF,  // if
     ND_IFELSE,  // if else
+    ND_WHILE,  // while
 } NodeKind;
 
 // 抽象構文木のノードの型
@@ -78,7 +81,7 @@ struct Node {
     Node *rhs;  // 右辺
     int val;  // kindがND_NUMの場合のみ使う
     int offset;  // kindがND_LVARの場合のみ使う
-    Node *cond;  // kindがND_IFの場合のみ使う
+    Node *cond;  // kindがND_IF, ND_IFELSE, ND_WHILEの場合のみ使う
 };
 
 void program();

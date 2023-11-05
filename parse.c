@@ -80,6 +80,16 @@ Node *stmt() {
             node->rhs = else_stmt_node;  // rhsをelsen節とする
         }
         return node;
+    } else if (consume_while()) {
+        expect("(");
+        Node *cond_node = expr();
+        expect(")");
+        Node *stmt_node = stmt();
+        node = calloc(1, sizeof(Node));
+        node->kind = ND_WHILE;
+        node->lhs = stmt_node;
+        node->cond = cond_node;
+        return node;
     } else {
         node = expr();
         expect(";");
