@@ -73,6 +73,12 @@ Node *stmt() {
         node->kind = ND_IF;
         node->lhs = stmt_node;  // lhsをthen節とする
         node->cond = cond_node;
+        // else節がある場合
+        if (consume_else()) {
+            node->kind = ND_IFELSE;
+            Node *else_stmt_node = stmt();
+            node->rhs = else_stmt_node;  // rhsをelsen節とする
+        }
         return node;
     } else {
         node = expr();

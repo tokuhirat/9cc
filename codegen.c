@@ -29,6 +29,21 @@ void gen(Node *node) {
         printf(".Lend%d:\n", then_label_num);
         return;
     }
+    if (node->kind == ND_IFELSE) {
+        gen(node->cond);
+        int else_label_num = lend_num;
+        printf("  pop rax\n");
+        printf("  cmp rax, 0\n");
+        printf("  je .Lelse%d\n", else_label_num);
+        lend_num++;
+        gen(node->lhs);
+        int then_label_num = lend_num;
+        printf("  jmp .Lend%d\n", then_label_num);
+        printf(".Lelse%d:\n", else_label_num);
+        gen(node->rhs);
+        printf(".Lend%d:\n", then_label_num);
+        return;
+    }
     switch (node->kind) {
     case ND_NUM:
         printf("  push %d\n", node->val);

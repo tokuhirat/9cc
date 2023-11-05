@@ -16,6 +16,7 @@ typedef enum {
     TK_EOF,  // 入力の終わりを表すトークン
     TK_RETURN,  // returnを表すトークン
     TK_IF,  // ifを表すトークン
+    TK_ELSE,  // elseを表すトークン
 } TokenKind;
 
 // トークン型
@@ -44,6 +45,7 @@ bool consume(char *op);
 Token *consume_ident();
 bool consume_return();
 bool consume_if();
+bool consume_else();
 void expect(char *op);
 int expect_number();
 
@@ -65,6 +67,7 @@ typedef enum {
     ND_LVAR,  // ローカル変数
     ND_RETURN,  // return
     ND_IF,  // if
+    ND_IFELSE,  // if else
 } NodeKind;
 
 // 抽象構文木のノードの型
