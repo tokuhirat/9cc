@@ -13,7 +13,7 @@ Node *code[100];
 LVar *locals;
 
 // ラベル通し番号
-int lend_num = 0;
+int label_num = 0;
 
 int main(int argc, char **argv) {
     if (argc != 2) {

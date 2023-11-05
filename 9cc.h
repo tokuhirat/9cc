@@ -104,4 +104,4 @@ extern Node *code[100];
 extern LVar *locals;
 
 // ラベル通し番号
-extern int lend_num;
+extern int label_num;

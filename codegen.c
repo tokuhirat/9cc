@@ -20,28 +20,28 @@ void gen(Node *node) {
     }
     if (node->kind == ND_IF) {
         gen(node->cond);
-        int then_label_num = lend_num;
         printf("  pop rax\n");
         printf("  cmp rax, 0\n");
-        printf("  je .Lend%d\n", then_label_num);
-        lend_num++;
+        int end_label_num = label_num;
+        printf("  je .Lend%d\n", end_label_num);
+        label_num++;
         gen(node->lhs);
-        printf(".Lend%d:\n", then_label_num);
+        printf(".Lend%d:\n", end_label_num);
         return;
     }
     if (node->kind == ND_IFELSE) {
         gen(node->cond);
-        int else_label_num = lend_num;
         printf("  pop rax\n");
         printf("  cmp rax, 0\n");
+        int else_label_num = label_num;
         printf("  je .Lelse%d\n", else_label_num);
-        lend_num++;
+        label_num++;
         gen(node->lhs);
-        int then_label_num = lend_num;
-        printf("  jmp .Lend%d\n", then_label_num);
+        int end_label_num = label_num;
+        printf("  jmp .Lend%d\n", end_label_num);
         printf(".Lelse%d:\n", else_label_num);
         gen(node->rhs);
-        printf(".Lend%d:\n", then_label_num);
+        printf(".Lend%d:\n", end_label_num);
         return;
     }
     switch (node->kind) {
