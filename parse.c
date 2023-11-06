@@ -81,6 +81,7 @@ Node *stmt() {
         }
         return node;
     } else if (consume_while()) {
+        // while文の場合
         expect("(");
         Node *cond_node = expr();
         expect(")");
@@ -91,6 +92,7 @@ Node *stmt() {
         node->cond = cond_node;
         return node;
     } else if (consume_for()) {
+        // for文の場合
         node = calloc(1, sizeof(Node));
         node->kind = ND_FOR;
         expect("(");
@@ -107,6 +109,18 @@ Node *stmt() {
             expect(")");
         }
         node->rhs = stmt();  // 本体
+        return node;
+    } else if (consume("{")) {
+        // 複文の場合
+        Node head = {};
+        Node *cur = &head;
+        while (!consume("}")) {
+            cur->next = stmt();
+            cur = cur->next;
+        }
+        node = calloc(1, sizeof(Node));
+        node->kind = ND_BLOCK;
+        node->body = head.next;
         return node;
     } else {
         node = expr();

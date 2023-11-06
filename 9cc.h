@@ -75,6 +75,7 @@ typedef enum {
     ND_IFELSE,  // if else
     ND_WHILE,  // while
     ND_FOR,  // for
+    ND_BLOCK,  // 複文
 } NodeKind;
 
 // 抽象構文木のノードの型
@@ -87,6 +88,8 @@ struct Node {
     int offset;  // kindがND_LVARの場合のみ使う
     Node *cond;  // kindがND_IF, ND_IFELSE, ND_WHILE, ND_FORの場合のみ使う
     Node *for_init;  // kindがND_FORの場合のみ使う
+    Node *next;  // 次のノードが必要な場合に使う
+    Node *body;  // kindがND_BLOCKの場合にのみ使う
 };
 
 void program();

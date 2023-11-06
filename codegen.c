@@ -11,6 +11,7 @@ void gen_lval(Node *node) {
 
 void gen(Node *node) {
     int end_label_num, else_label_num, begin_label_num;
+    Node *cur;  // 複文トレース用
 
     switch (node->kind) {
     case ND_NUM:
@@ -94,6 +95,13 @@ void gen(Node *node) {
             gen(node->lhs);
         printf("  jmp .Lbegin%d\n", begin_label_num);
         printf(".Lend%d:\n", end_label_num);
+        return;
+    case ND_BLOCK:
+        cur = node->body;
+        while (cur) {
+            gen(cur);
+            cur = cur->next;
+        }
         return;
     }
 
