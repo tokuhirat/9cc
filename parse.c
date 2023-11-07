@@ -122,6 +122,10 @@ Node *stmt() {
         node->kind = ND_BLOCK;
         node->body = head.next;
         return node;
+    } else if (consume(";")) {
+        node = calloc(1, sizeof(Node));
+        node->kind = ND_BLOCK;
+        return node;
     } else {
         node = expr();
         expect(";");
