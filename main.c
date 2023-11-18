@@ -1,11 +1,5 @@
 # include "9cc.h"
 
-// 現在着目しているトークン
-Token *token;
-
-// 入力プログラム
-char *user_input;
-
 // stmt保管用
 Node *code[100];
 
@@ -23,9 +17,8 @@ int main(int argc, char **argv) {
 
     // トークナイズしてパースする
     // 結果はcodeに保存される。
-    user_input = argv[1];
-    token = tokenize(user_input);
-    program();
+    Token *token = tokenize(argv[1]);
+    program(token);
 
     // アセンブリの前半部分を出力
     printf(".intel_syntax noprefix\n");

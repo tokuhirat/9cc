@@ -10,15 +10,11 @@
 //
 // トークンの種類
 typedef enum {
-    TK_RESERVED,  // 記号
+    TK_PUNCT,  // 記号など
+    TK_KEYWORD,  // キーワード
     TK_IDENT,  // 識別子
     TK_NUM,  // 整数トークン
     TK_EOF,  // 入力の終わりを表すトークン
-    TK_RETURN,  // returnを表すトークン
-    TK_IF,  // ifを表すトークン
-    TK_ELSE,  // elseを表すトークン
-    TK_WHILE,  // whileを表すトークン
-    TK_FOR,  // forを表すトークン
 } TokenKind;
 
 // トークン型
@@ -27,7 +23,7 @@ struct Token {
     TokenKind kind;  // トークンの型
     Token *next;  // 次の入力トークン
     int val;  // kindがTK_NUMの場合、その数値
-    char *str;  // トークン文字列
+    char *loc;  // トークンの位置
     int len;  // トークンの長さ
 };
 
@@ -42,17 +38,10 @@ struct LVar {
 
 void error(char *fmt, ...);
 void error_at(char *loc, char *fmt, ...);
+void error_tok(Token *tok, char *fmt, ...);
+bool equal(Token *tok, char *op);
+Token *skip(Token *tok, char *op);
 Token *tokenize(char *p);
-bool consume(char *op);
-bool check_token(char *op);
-Token *consume_ident();
-bool consume_return();
-bool consume_if();
-bool consume_else();
-bool consume_while();
-bool consume_for();
-void expect(char *op);
-int expect_number();
 
 //
 // parse.c
