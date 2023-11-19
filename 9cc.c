@@ -7,23 +7,20 @@
 
 // トークンの種類
 typedef enum {
-    TK_RESERVED,  // 記号
-    TK_NUM,  // 整数トークン
-    TK_EOF,  // 入力の終わりを表すトークン
+    TK_PUNCT,  // 記号
+    TK_NUM,    // 整数トークン
+    TK_EOF,    // 入力の終わりを表すトークン
 } TokenKind;
 
-typedef struct Token Token;
-
 // トークン型
+typedef struct Token Token;
 struct Token {
     TokenKind kind;  // トークンの型
-    Token *next;  // 次の入力トークン
-    int val;  // kindがTK_NUMの場合、その数値
-    char *str;  // トークン文字列
+    Token *next;     // 次の入力トークン
+    int val;         // kindがTK_NUMの場合、その数値
+    char *loc;       // トークン位置
+    int len;         // トークン長さ
 };
-
-// 現在着目しているトークン
-Token *token;
 
 // エラーを報告するための関数
 // printfと同じ引数を取る
@@ -35,50 +32,39 @@ void error(char *fmt, ...) {
     exit(1);
 }
 
-// 次のトークンが期待している記号のときには、トークンを１つ読み進めて
-// 真を返す。それ以外の場合には偽を返す。
-bool consume(char op) {
-    if (token->kind != TK_RESERVED || token->str[0] != op)
-        return false;
-    token = token->next;
-    return true;
+// トークンが期待している記号か確認
+bool equal(Token *tok, char *op) {
+    return memcmp(tok->loc, op, tok->len) == 0 && op[tok->len] == '\0';
 }
 
-// 次のトークンが期待している記号の時にはトークンを１つ読み進める。
+// トークンが期待している記号の時にはトークンを１つ読み進める。
 // それ以外の場合にはエラーを報告する。
-void expect(char op) {
-    if (token->kind != TK_RESERVED || token->str[0] != op)
-        error("'%c'ではありません", op);
-    token = token->next;
+Token *skip(Token *tok, char *s) {
+    if (!equal(tok, s))
+        error("expected '%s", s);
+    return tok->next;
 }
 
-// トークンが数値の場合、トークンを１つ読み進めてその数値を返す。
+// トークンがTK_NUMのときその数値を返す。
 // それ以外の場合にはエラーを報告する。
-int expect_number() {
-    if (token->kind != TK_NUM)
-        error("数ではありません");
-    int val = token->val;
-    token = token->next;
-    return val;
+int get_number(Token *tok) {
+    if (tok->kind != TK_NUM)
+        error("expected a number");
+    return tok->val;
 }
 
-bool at_eof() {
-    return token->kind == TK_EOF;
-}
-
-// 新しいトークンを作成してcurに繋げる
-Token *new_token(TokenKind kind, Token *cur, char *str) {
+// 新しいトークンを作成する
+Token *new_token(TokenKind kind, char *start, char *end) {
     Token *tok = calloc(1, sizeof(Token));
     tok->kind = kind;
-    tok->str = str;
-    cur->next = tok;
+    tok->loc = start;
+    tok->len = end - start;
     return tok;
 }
 
 // 入力文字列pをトークナイズしてそれを返す
 Token *tokenize(char *p) {
-    Token head;
-    head.next = NULL;
+    Token head = {};
     Token *cur = &head;
 
     while (*p) {
@@ -88,21 +74,26 @@ Token *tokenize(char *p) {
             continue;
         }
 
-        if (*p == '+' || *p == '-') {
-            cur = new_token(TK_RESERVED, cur, p++);
+        // 数値の場合
+        if (isdigit(*p)) {
+            cur = cur->next = new_token(TK_NUM, p, p);
+            char *q = p;
+            cur->val = strtoul(p, &p, 10);
+            cur->len = p - q;
             continue;
         }
 
-        if (isdigit(*p)) {
-            cur = new_token(TK_NUM, cur, p);
-            cur->val = strtol(p, &p, 10);
+        // Punctuator
+        if (*p == '+' || *p == '-') {
+            cur = cur->next = new_token(TK_PUNCT, p, p + 1);
+            p++;
             continue;
         }
 
         error("トークナイズできません");
     }
 
-    new_token(TK_EOF, cur, p);
+    cur = cur->next = new_token(TK_EOF, p, p);
     return head.next;
 }
 
@@ -113,7 +104,7 @@ int main(int argc, char **argv) {
     }
 
     // トークナイズする
-    token = tokenize(argv[1]);
+    Token *tok = tokenize(argv[1]);
 
     // アセンブリの前半部分を出力
     printf(".intel_syntax noprefix\n");
@@ -122,19 +113,21 @@ int main(int argc, char **argv) {
 
     // 式の最初は数でなければならないので、それをチェックして
     // 最初のmov命令を出力
-    printf("  mov rax, %d\n", expect_number());
+    printf("  mov rax, %d\n", get_number(tok));
+    tok = tok->next;
 
     // '+<数>'あるいは'-<数>'というトークンの並びを消費しつつ
     // アセンブリを出力
-
-    while (!at_eof()) {
-        if (consume('+')) {
-            printf("  add rax, %d\n", expect_number());
+    while (tok->kind != TK_EOF) {
+        if (equal(tok, "+")) {
+            printf("  add rax, %d\n", get_number(tok->next));
+            tok = tok->next->next;
             continue;
         }
 
-        expect('-');    
-        printf("  sub rax, %d\n", expect_number());
+        tok = skip(tok, "-");
+        printf("  sub rax, %d\n", get_number(tok));
+        tok = tok->next;
     }
 
     printf("  ret\n");
