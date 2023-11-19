@@ -115,6 +115,12 @@ Token *tokenize(char *p) {
         }
 
         // Punctuator
+        if (!strncmp(p, "==", 2) || !strncmp(p, "!=", 2) || !strncmp(p, ">=", 2) || !strncmp(p, "<=", 2)){
+            cur =cur->next = new_token(TK_PUNCT, p, p + 2);
+            cur->len = 2;
+            p += 2;
+            continue;
+        }
         if (ispunct(*p)) {
             cur = cur->next = new_token(TK_PUNCT, p, p + 1);
             p++;
@@ -140,6 +146,12 @@ typedef enum {
     ND_DIV,  // /
     ND_NEG,  // unary -
     ND_NUM,  // 整数
+    ND_EQ,   // ==
+    ND_NEQ,  // !=
+    ND_LT,   // <
+    ND_LE,   // <=
+    ND_GT,   // >
+    ND_GE,   // >=
 } NodeKind;
 
 // 抽象構文木のノードの型
@@ -177,12 +189,62 @@ Node *new_num(int val) {
 }
 
 Node *expr(Token **rest, Token *tok);
+Node *equality(Token **rest, Token *tok);
+Node *relational(Token **rest, Token *tok);
+Node *add(Token **rest, Token *tok);
 Node *mul(Token **rest, Token *tok);
 Node *unary(Token **rest, Token *tok);
 Node *primary(Token **rest, Token *tok);
 
-// expr = mul ("+" mul | "-" mul)*
 Node *expr(Token **rest, Token *tok) {
+    return equality(rest, tok);
+}
+
+Node *equality(Token **rest, Token *tok) {
+    Node *node =relational(&tok, tok);
+
+    for (;;) {
+        if (equal(tok, "==")) {
+            node = new_binary(ND_EQ, node, relational(&tok, tok->next));
+            continue;
+        }
+        if (equal(tok, "!=")) {
+            node = new_binary(ND_NEQ, node, relational(&tok, tok->next));
+            continue;
+        }
+        *rest = tok;
+        return node;
+            
+    }
+}
+
+Node *relational(Token **rest, Token *tok) {
+    Node *node = add(&tok, tok);
+
+    for (;;) {
+        if (equal(tok, "<")) {
+            node = new_binary(ND_LT, node, add(&tok, tok->next));
+            continue;
+        }
+        if (equal(tok, "<=")) {
+            node = new_binary(ND_LE, node, add(&tok, tok->next));
+            continue;
+        }
+        if (equal(tok, ">")) {
+            node = new_binary(ND_LT, add(&tok, tok->next), node);
+            continue;
+        }
+        if (equal(tok, ">=")) {
+            node = new_binary(ND_LE, add(&tok, tok->next), node);
+            continue;
+        }
+            
+        *rest = tok;
+        return node;
+    }
+}
+
+Node *add(Token **rest, Token *tok) {
     Node *node = mul(&tok, tok);
 
     for (;;) {
@@ -292,6 +354,26 @@ void gen_expr(Node *node) {
     case ND_DIV:
         printf("  cqo\n");
         printf("  idiv rdi\n");
+        return;
+    case ND_EQ:
+        printf("  cmp rax, rdi\n");
+        printf("  sete al\n");
+        printf("  movzb rax, al\n");
+        return;
+    case ND_NEQ:
+        printf("  cmp rax, rdi\n");
+        printf("  setne al\n");
+        printf("  movzb rax, al\n");
+        return;
+    case ND_LT:
+        printf("  cmp rax, rdi\n");
+        printf("  setl al\n");
+        printf("  movzb rax, al\n");
+        return;
+    case ND_LE:
+        printf("  cmp rax, rdi\n");
+        printf("  setle al\n");
+        printf("  movzb rax, al\n");
         return;
     }
 
