@@ -15,9 +15,7 @@ static void pop(char *arg) {
 static void gen_addr(Node *node) {
     if (node->kind == ND_VAR) {
         int offset = (node->name - 'a' + 1) * 8;
-        printf("  mov rax, rbp\n");
-        printf("  sub rax, %d\n", offset);
-        // printf("  lea rax, [rbp + %d]\n", -offset);
+        printf("  lea rax, [rbp + %d]\n", -offset);
         return;
     }
 
