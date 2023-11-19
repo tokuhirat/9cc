@@ -22,7 +22,7 @@ struct Token {
     int len;         // トークン長さ
 };
 
-char *user_input;
+char *current_input;
 
 // エラーを報告するための関数
 // printfと同じ引数を取る
@@ -35,17 +35,27 @@ void error(char *fmt, ...) {
 }
 
 // エラー箇所を報告する
-void error_at(char *loc, char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-
-    int pos = loc - user_input;
-    fprintf(stderr, "%s\n", user_input);
+void verror_at(char *loc, char *fmt, va_list ap) {
+    int pos = loc - current_input;
+    fprintf(stderr, "%s\n", current_input);
     fprintf(stderr, "%*s", pos, " ");
     fprintf(stderr, "^ ");
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
     exit(1);
+}
+
+void error_at(char *loc, char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    verror_at(loc, fmt, ap);
+}
+
+
+void error_tok(Token *tok, char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    verror_at(tok->loc, fmt, ap);
 }
 
 // トークンが期待している記号か確認
@@ -57,7 +67,7 @@ bool equal(Token *tok, char *op) {
 // それ以外の場合にはエラーを報告する。
 Token *skip(Token *tok, char *s) {
     if (!equal(tok, s))
-        error_at(tok->loc, "'%s'ではありません", s);
+        error_tok(tok, "'%s'ではありません", s);
     return tok->next;
 }
 
@@ -65,7 +75,7 @@ Token *skip(Token *tok, char *s) {
 // それ以外の場合にはエラーを報告する。
 int get_number(Token *tok) {
     if (tok->kind != TK_NUM)
-        error_at(tok->loc, "expected a number");
+        error_tok(tok, "expected a number");
     return tok->val;
 }
 
@@ -79,7 +89,8 @@ Token *new_token(TokenKind kind, char *start, char *end) {
 }
 
 // 入力文字列pをトークナイズしてそれを返す
-Token *tokenize(char *p) {
+Token *tokenize(void) {
+    char *p = current_input;
     Token head = {};
     Token *cur = &head;
 
@@ -120,8 +131,8 @@ int main(int argc, char **argv) {
     }
 
     // トークナイズする
-    user_input = argv[1];
-    Token *tok = tokenize(argv[1]);
+    current_input = argv[1];
+    Token *tok = tokenize();
 
     // アセンブリの前半部分を出力
     printf(".intel_syntax noprefix\n");
