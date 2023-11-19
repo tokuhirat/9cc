@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -5,6 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+//
+// Tokenizer
+//
 // トークンの種類
 typedef enum {
     TK_PUNCT,  // 記号
@@ -110,8 +115,7 @@ Token *tokenize(char *p) {
         }
 
         // Punctuator
-        if (strchr("+-*/()", *p)) {
-        // if (ispunct(*p)) {
+        if (ispunct(*p)) {
             cur = cur->next = new_token(TK_PUNCT, p, p + 1);
             p++;
             continue;
@@ -124,6 +128,10 @@ Token *tokenize(char *p) {
     return head.next;
 }
 
+
+//
+// Parser
+//
 // 抽象構文木のノードの種類
 typedef enum {
     ND_ADD,  // +
@@ -133,9 +141,8 @@ typedef enum {
     ND_NUM,  // 整数
 } NodeKind;
 
-typedef struct Node Node;
-
 // 抽象構文木のノードの型
+typedef struct Node Node;
 struct Node {
     NodeKind kind;  // ノードの型
     Node *lhs;  // 左辺
@@ -143,17 +150,21 @@ struct Node {
     int val;  // kindがND_NUMの場合のみ使う
 };
 
-Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
+Node *new_node(NodeKind kind) {
     Node *node = calloc(1, sizeof(Node));
     node->kind = kind;
+    return node;
+}
+
+Node *new_binary(NodeKind kind, Node *lhs, Node *rhs) {
+    Node *node = new_node(kind);
     node->lhs = lhs;
     node->rhs = rhs;
     return node;
 }
 
-Node *new_node_num(int val) {
-    Node *node = calloc(1, sizeof(Node));
-    node->kind = ND_NUM;
+Node *new_num(int val) {
+    Node *node = new_node(ND_NUM);
     node->val = val;
     return node;
 }
@@ -162,17 +173,18 @@ Node *expr(Token **rest, Token *tok);
 Node *mul(Token **rest, Token *tok);
 Node *primary(Token **rest, Token *tok);
 
+// expr = mul ("+" mul | "-" mul)*
 Node *expr(Token **rest, Token *tok) {
     Node *node = mul(&tok, tok);
 
     for (;;) {
         if (equal(tok, "+")) {
-            node = new_node(ND_ADD, node, mul(&tok, tok->next));
+            node = new_binary(ND_ADD, node, mul(&tok, tok->next));
             continue;
         }
             
         if (equal(tok, "-")) {
-            node = new_node(ND_SUB, node, mul(&tok, tok->next));
+            node = new_binary(ND_SUB, node, mul(&tok, tok->next));
             continue;
         }
         *rest = tok;
@@ -180,17 +192,18 @@ Node *expr(Token **rest, Token *tok) {
     }
 }
 
+// mul = primary ("*" primary | "/" primary)*
 Node *mul(Token **rest, Token *tok) {
     Node *node = primary(&tok, tok);
 
     for (;;) {
         if (equal(tok, "*")) {
-            node = new_node(ND_MUL, node, primary(&tok, tok->next));
+            node = new_binary(ND_MUL, node, primary(&tok, tok->next));
             continue;
         }
             
         if (equal(tok, "/")) {
-            node = new_node(ND_DIV, node, primary(&tok, tok->next));
+            node = new_binary(ND_DIV, node, primary(&tok, tok->next));
             continue;
         }
         *rest = tok;            
@@ -198,6 +211,7 @@ Node *mul(Token **rest, Token *tok) {
     }
 }
 
+// primary = "(" expr ")" | num
 Node *primary(Token **rest, Token *tok) {
     // 次のトークンが"("なら、"(" expr ")"のはず
     if (equal(tok, "(")) {
@@ -206,41 +220,59 @@ Node *primary(Token **rest, Token *tok) {
         return node;
     }
 
-    // そうでなければ数値のはず
-    int val = get_number(tok);
-    *rest = tok->next;
-    return new_node_num(val);
+    if (tok->kind == TK_NUM) {
+        Node *node = new_num(tok->val);
+        *rest = tok->next;
+        return node;
+    }
+
+    error_tok(tok, "expected an expression");
 }
 
-void gen(Node *node) {
+//
+// Code generator
+//
+
+int depth;
+
+void push(void) {
+    printf("  push rax\n");
+    depth++;
+}
+
+void pop(char *arg) {
+    printf("  pop %s\n", arg);
+    depth--;
+}
+
+void gen_expr(Node *node) {
     if (node->kind == ND_NUM) {
-        printf("  push %d\n", node->val);
+        printf("  mov rax, %d\n", node->val);
         return;
     }
 
-    gen(node->lhs);
-    gen(node->rhs);
-
-    printf("  pop rdi\n");
-    printf("  pop rax\n");
+    gen_expr(node->rhs);
+    push();
+    gen_expr(node->lhs);
+    pop("rdi");
 
     switch (node->kind) {
     case ND_ADD:
         printf("  add rax, rdi\n");
-        break;
+        return;
     case ND_SUB:
         printf("  sub rax, rdi\n");
-        break;
+        return;
     case ND_MUL:
         printf("  imul rax, rdi\n");
-        break;
+        return;
     case ND_DIV:
         printf("  cqo\n");
         printf("  idiv rdi\n");
-        break;
+        return;
     }
 
-    printf("  push rax\n");
+    error("invalid expression");
 }
 
 
@@ -261,11 +293,11 @@ int main(int argc, char **argv) {
     printf("main:\n");
 
     // 抽象構文木を下りながらコード生成
-    gen(node);
+    gen_expr(node);
 
-    // スタックトップに式全体の値が残っているはずなので
-    // それをRAXにロードして関数からの返り値とする
-    printf("  pop rax\n");
+    // 関数の返り値
     printf("  ret\n");
+
+    assert(depth == 0);
     return 0;
 }
