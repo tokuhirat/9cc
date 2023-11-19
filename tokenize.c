@@ -1,6 +1,5 @@
 #include "9cc.h"
 
-
 static char *current_input;
 
 // エラーを報告するための関数
@@ -62,6 +61,16 @@ static bool startswith(char *p, char *q) {
     return strncmp(p, q, strlen(q)) == 0;
 }
 
+// 識別子の先頭文字に使える文字か
+static bool is_ident1(char c) {
+    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
+}
+
+// 識別子の2文字目以降に使える文字か
+static bool is_ident2(char c) {
+    return is_ident1(c) || ('0' <= c && c <= '9');
+}
+
 // punctuatorの長さを返す関数
 static int read_punct(char *p) {
     if (startswith(p, "==") || startswith(p, "!=") ||
@@ -92,9 +101,12 @@ Token *tokenize(char *p) {
         }
 
         // 識別子
-        if ('a' <= *p && *p <= 'z') {
-            cur = cur->next = new_token(TK_IDENT, p, p + 1);
-            p++;
+        if (is_ident1(*p)) {
+            char *start = p;
+            do {
+                p++;
+            } while (is_ident2(*p));
+            cur = cur->next = new_token(TK_IDENT, start, p);
             continue;
         }
 
