@@ -83,6 +83,7 @@ typedef enum {
 struct Node {
     NodeKind kind;  // ノードの型
     Node *next;     // next node
+    Token *tok;     // 代表トークン
 
     Node *lhs;      // 左辺
     Node *rhs;      // 右辺

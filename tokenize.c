@@ -96,6 +96,7 @@ static void convert_keywords(Token *tok) {
 
 // 入力文字列pをトークナイズしてそれを返す
 Token *tokenize(char *p) {
+    current_input = p;
     Token head = {};
     Token *cur = &head;
 
