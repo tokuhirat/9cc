@@ -89,8 +89,7 @@ Token *new_token(TokenKind kind, char *start, char *end) {
 }
 
 // 入力文字列pをトークナイズしてそれを返す
-Token *tokenize(void) {
-    char *p = current_input;
+Token *tokenize(char *p) {
     Token head = {};
     Token *cur = &head;
 
@@ -111,7 +110,8 @@ Token *tokenize(void) {
         }
 
         // Punctuator
-        if (*p == '+' || *p == '-') {
+        if (strchr("+-*/()", *p)) {
+        // if (ispunct(*p)) {
             cur = cur->next = new_token(TK_PUNCT, p, p + 1);
             p++;
             continue;
@@ -124,6 +124,126 @@ Token *tokenize(void) {
     return head.next;
 }
 
+// 抽象構文木のノードの種類
+typedef enum {
+    ND_ADD,  // +
+    ND_SUB,  // -
+    ND_MUL,  // *
+    ND_DIV,  // +
+    ND_NUM,  // 整数
+} NodeKind;
+
+typedef struct Node Node;
+
+// 抽象構文木のノードの型
+struct Node {
+    NodeKind kind;  // ノードの型
+    Node *lhs;  // 左辺
+    Node *rhs;  // 右辺
+    int val;  // kindがND_NUMの場合のみ使う
+};
+
+Node *new_node(NodeKind kind, Node *lhs, Node *rhs) {
+    Node *node = calloc(1, sizeof(Node));
+    node->kind = kind;
+    node->lhs = lhs;
+    node->rhs = rhs;
+    return node;
+}
+
+Node *new_node_num(int val) {
+    Node *node = calloc(1, sizeof(Node));
+    node->kind = ND_NUM;
+    node->val = val;
+    return node;
+}
+
+Node *expr(Token **rest, Token *tok);
+Node *mul(Token **rest, Token *tok);
+Node *primary(Token **rest, Token *tok);
+
+Node *expr(Token **rest, Token *tok) {
+    Node *node = mul(&tok, tok);
+
+    for (;;) {
+        if (equal(tok, "+")) {
+            node = new_node(ND_ADD, node, mul(&tok, tok->next));
+            continue;
+        }
+            
+        if (equal(tok, "-")) {
+            node = new_node(ND_SUB, node, mul(&tok, tok->next));
+            continue;
+        }
+        *rest = tok;
+        return node;
+    }
+}
+
+Node *mul(Token **rest, Token *tok) {
+    Node *node = primary(&tok, tok);
+
+    for (;;) {
+        if (equal(tok, "*")) {
+            node = new_node(ND_MUL, node, primary(&tok, tok->next));
+            continue;
+        }
+            
+        if (equal(tok, "/")) {
+            node = new_node(ND_DIV, node, primary(&tok, tok->next));
+            continue;
+        }
+        *rest = tok;            
+        return node;
+    }
+}
+
+Node *primary(Token **rest, Token *tok) {
+    // 次のトークンが"("なら、"(" expr ")"のはず
+    if (equal(tok, "(")) {
+        Node *node = expr(&tok, tok->next);
+        *rest = skip(tok, ")");
+        return node;
+    }
+
+    // そうでなければ数値のはず
+    int val = get_number(tok);
+    *rest = tok->next;
+    return new_node_num(val);
+}
+
+void gen(Node *node) {
+    if (node->kind == ND_NUM) {
+        printf("  push %d\n", node->val);
+        return;
+    }
+
+    gen(node->lhs);
+    gen(node->rhs);
+
+    printf("  pop rdi\n");
+    printf("  pop rax\n");
+
+    switch (node->kind) {
+    case ND_ADD:
+        printf("  add rax, rdi\n");
+        break;
+    case ND_SUB:
+        printf("  sub rax, rdi\n");
+        break;
+    case ND_MUL:
+        printf("  imul rax, rdi\n");
+        break;
+    case ND_DIV:
+        printf("  cqo\n");
+        printf("  idiv rdi\n");
+        break;
+    }
+
+    printf("  push rax\n");
+}
+
+
 int main(int argc, char **argv) {
     if (argc != 2) {
         fprintf(stderr, "引数の個数が正しくありません\n");
@@ -132,32 +252,20 @@ int main(int argc, char **argv) {
 
     // トークナイズする
     current_input = argv[1];
-    Token *tok = tokenize();
+    Token *tok = tokenize(current_input);
+    Node *node = expr(&tok, tok);
 
     // アセンブリの前半部分を出力
     printf(".intel_syntax noprefix\n");
     printf(".globl main\n");
     printf("main:\n");
 
-    // 式の最初は数でなければならないので、それをチェックして
-    // 最初のmov命令を出力
-    printf("  mov rax, %d\n", get_number(tok));
-    tok = tok->next;
+    // 抽象構文木を下りながらコード生成
+    gen(node);
 
-    // '+<数>'あるいは'-<数>'というトークンの並びを消費しつつ
-    // アセンブリを出力
-    while (tok->kind != TK_EOF) {
-        if (equal(tok, "+")) {
-            printf("  add rax, %d\n", get_number(tok->next));
-            tok = tok->next->next;
-            continue;
-        }
-
-        tok = skip(tok, "-");
-        printf("  sub rax, %d\n", get_number(tok));
-        tok = tok->next;
-    }
-
+    // スタックトップに式全体の値が残っているはずなので
+    // それをRAXにロードして関数からの返り値とする
+    printf("  pop rax\n");
     printf("  ret\n");
     return 0;
 }
