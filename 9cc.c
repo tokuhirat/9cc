@@ -93,6 +93,18 @@ Token *new_token(TokenKind kind, char *start, char *end) {
     return tok;
 }
 
+bool startswith(char *p, char *q) {
+    return strncmp(p, q, strlen(q)) == 0;
+}
+
+// punctuatorの長さを返す関数
+int read_punct(char *p) {
+    if (startswith(p, "==") || startswith(p, "!=") ||
+        startswith(p, "<=") || startswith(p, ">="))
+        return 2;
+    return ispunct(*p) ? 1 : 0;
+}
+
 // 入力文字列pをトークナイズしてそれを返す
 Token *tokenize(char *p) {
     Token head = {};
@@ -115,15 +127,10 @@ Token *tokenize(char *p) {
         }
 
         // Punctuator
-        if (!strncmp(p, "==", 2) || !strncmp(p, "!=", 2) || !strncmp(p, ">=", 2) || !strncmp(p, "<=", 2)){
-            cur =cur->next = new_token(TK_PUNCT, p, p + 2);
-            cur->len = 2;
-            p += 2;
-            continue;
-        }
-        if (ispunct(*p)) {
-            cur = cur->next = new_token(TK_PUNCT, p, p + 1);
-            p++;
+        int punct_len = read_punct(p);
+        if (punct_len) {
+            cur = cur->next = new_token(TK_PUNCT, p, p + punct_len);
+            p += cur->len;
             continue;
         }
 
@@ -147,11 +154,9 @@ typedef enum {
     ND_NEG,  // unary -
     ND_NUM,  // 整数
     ND_EQ,   // ==
-    ND_NEQ,  // !=
+    ND_NE,   // !=
     ND_LT,   // <
     ND_LE,   // <=
-    ND_GT,   // >
-    ND_GE,   // >=
 } NodeKind;
 
 // 抽象構文木のノードの型
@@ -196,10 +201,12 @@ Node *mul(Token **rest, Token *tok);
 Node *unary(Token **rest, Token *tok);
 Node *primary(Token **rest, Token *tok);
 
+// expr = equality
 Node *expr(Token **rest, Token *tok) {
     return equality(rest, tok);
 }
 
+// equality = relational ("==" relational | "!=" relational)*
 Node *equality(Token **rest, Token *tok) {
     Node *node =relational(&tok, tok);
 
@@ -209,7 +216,7 @@ Node *equality(Token **rest, Token *tok) {
             continue;
         }
         if (equal(tok, "!=")) {
-            node = new_binary(ND_NEQ, node, relational(&tok, tok->next));
+            node = new_binary(ND_NE, node, relational(&tok, tok->next));
             continue;
         }
         *rest = tok;
@@ -218,6 +225,7 @@ Node *equality(Token **rest, Token *tok) {
     }
 }
 
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 Node *relational(Token **rest, Token *tok) {
     Node *node = add(&tok, tok);
 
@@ -244,6 +252,7 @@ Node *relational(Token **rest, Token *tok) {
     }
 }
 
+// add = mul ("+" mul | "-" mul)*
 Node *add(Token **rest, Token *tok) {
     Node *node = mul(&tok, tok);
 
@@ -356,23 +365,18 @@ void gen_expr(Node *node) {
         printf("  idiv rdi\n");
         return;
     case ND_EQ:
-        printf("  cmp rax, rdi\n");
-        printf("  sete al\n");
-        printf("  movzb rax, al\n");
-        return;
-    case ND_NEQ:
-        printf("  cmp rax, rdi\n");
-        printf("  setne al\n");
-        printf("  movzb rax, al\n");
-        return;
+    case ND_NE:
     case ND_LT:
-        printf("  cmp rax, rdi\n");
-        printf("  setl al\n");
-        printf("  movzb rax, al\n");
-        return;
     case ND_LE:
         printf("  cmp rax, rdi\n");
-        printf("  setle al\n");
+        if (node->kind == ND_EQ)
+            printf("  sete al\n");
+        else if (node->kind == ND_NE)
+            printf("  setne al\n");
+        else if (node->kind == ND_LT)
+            printf("  setl al\n");
+        else if (node->kind == ND_LE)
+            printf("  setle al\n");
         printf("  movzb rax, al\n");
         return;
     }
