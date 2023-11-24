@@ -53,6 +53,8 @@ struct Obj {
 // Function
 typedef struct Function Function;
 struct Function {
+    Function *next;
+    char * name;
     Node *body;
     Obj *locals;
     int stack_size;

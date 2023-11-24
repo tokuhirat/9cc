@@ -316,12 +316,26 @@ static Node *primary(Token **rest, Token *tok) {
     error_tok(tok, "expected an expression");
 }
 
+static Function* function(Token **rest, Token *tok) {
+    locals = NULL;
+
+    Function *fn = calloc(1, sizeof(Function));
+    fn->name = strndup(tok->loc, tok->len);
+    tok = tok->next;
+    tok = skip(tok, "(");
+    tok = skip(tok, ")");
+    tok = skip(tok, "{");
+    fn->body = compound_stmt(rest, tok);
+    fn->locals = locals;
+    return fn;
+}
+
 // program = stmt*
 Function *parse(Token *tok) {
-    tok = skip(tok, "{");
-        
-    Function *prog = calloc(1, sizeof(Function));
-    prog->body = compound_stmt(&tok, tok);
-    prog->locals = locals;
-    return prog;
+    Function head = {};
+    Function *cur = &head;
+
+    while (tok->kind != TK_EOF)
+        cur = cur->next = function(&tok, tok);
+    return head.next;
 }

@@ -107,32 +107,32 @@ static void gen_expr(Node *node) {
     error_tok(node->tok, "invalid expression");
 }
 
-static void gen_stmt(Node *node) {
+static void gen_stmt(Node *node, char *name) {
     switch (node->kind) {
     case ND_IF: {
         int c = count();
         gen_expr(node->cond);
         printf("  cmp rax, 0\n");
         printf("  je .L.else.%d\n", c);
-        gen_stmt(node->then);
+        gen_stmt(node->then, name);
         printf("  jmp .L.end.%d\n", c);
         printf(".L.else.%d:\n", c);
         if (node->els)
-            gen_stmt(node->els);
+            gen_stmt(node->els, name);
         printf(".L.end.%d:\n", c);
         return;
     }
     case ND_FOR: {
         int c = count();
         if (node->init)
-            gen_stmt(node->init);
+            gen_stmt(node->init, name);
         printf(".L.begin.%d:\n", c);
         if (node->cond) {
             gen_expr(node->cond);
             printf("  cmp rax, 0\n");
             printf("  je .L.end.%d\n", c);
         }
-        gen_stmt(node->then);
+        gen_stmt(node->then, name);
         if (node->inc)
             gen_expr(node->inc);
         printf("  jmp .L.begin.%d\n", c);
@@ -141,11 +141,11 @@ static void gen_stmt(Node *node) {
     }
     case ND_BLOCK:
         for (Node *n = node->body; n; n= n->next)
-            gen_stmt(n);
+            gen_stmt(n, name);
         return;
     case ND_RETURN:
         gen_expr(node->lhs);
-        printf("  jmp .L.return\n");
+        printf("  jmp .L.return.%s\n", name);
         return;
     case ND_EXPR_STMT:
         gen_expr(node->lhs);
@@ -153,6 +153,24 @@ static void gen_stmt(Node *node) {
     }
 
     error_tok(node->tok, "invalud statement");
+}
+
+static void gen_func(Function *fn) {
+    char *name = fn->name;
+    
+    printf("%s:\n", name);
+    // Prologue
+    printf("  push rbp\n");
+    printf("  mov rbp, rsp\n");
+    printf("  sub rsp, %d\n", fn->stack_size);
+
+    gen_stmt(fn->body, name);
+    assert(depth == 0);
+
+    printf(".L.return.%s:\n", name);
+    printf("  mov rsp, rbp\n");
+    printf("  pop rbp\n");
+    printf("  ret\n");
 }
 
 static void assign_lvar_offsets(Function *prog) {
@@ -169,20 +187,7 @@ void codegen(Function *prog) {
 
     printf(".intel_syntax noprefix\n");
     printf(".globl main\n");
-    printf("main:\n");
 
-    // Prologue
-    printf("  push rbp\n");
-    printf("  mov rbp, rsp\n");
-    printf("  sub rsp, %d\n", prog->stack_size);
-
-    
-    gen_stmt(prog->body);
-    assert(depth == 0);
-    
-
-    printf(".L.return:\n");
-    printf("  mov rsp, rbp\n");
-    printf("  pop rbp\n");
-    printf("  ret\n");
+    for (Function *fn = prog; fn; fn = fn->next)
+        gen_func(fn);
 }
