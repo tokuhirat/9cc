@@ -269,7 +269,9 @@ static Node *unary(Token **rest, Token *tok) {
     return primary(rest, tok);
 }
 
-// primary = "(" expr ")" | ident ("(" ")")? | num
+// primary = "(" expr ")" | ident args? | num
+// args = "(" (")" 
+//            | expr ("," expr)* ")") 
 static Node *primary(Token **rest, Token *tok) {
     // 次のトークンが"("なら、"(" expr ")"のはず
     if (equal(tok, "(")) {
@@ -283,7 +285,42 @@ static Node *primary(Token **rest, Token *tok) {
         if (equal(tok->next, "(")) {
             Node *node = new_node(ND_FUNCALL, tok);
             node->funcname = strndup(tok->loc, tok->len);
-            *rest = skip(tok->next->next, ")");
+
+            tok = tok->next->next;
+
+            // // 引数を持たない場合
+            // if (equal(tok, ")")) {
+            //     *rest = tok->next;
+            //     return node;
+            // }
+            // // 引数を持つ場合
+            // Node head = {};
+            // Node *args = head.next;
+            // while (!equal(tok, ")")) {
+            //     args = args->next = expr(&tok, tok);
+            //     if (equal(tok, ",")) {
+            //         tok = skip(tok, ",");
+            //         continue;
+            //     } else {
+            //         node->args = head.next;
+            //         *rest = skip(tok, ")");
+            //         return node;
+            //     }
+            // }
+            /////////////////////////////
+            // 引数のパース
+            Node head = {};
+            Node *args = &head;
+            int args_num = 0;
+            while (!equal(tok, ")")) {
+                args = args->next = expr(&tok, tok);
+                args_num++;
+                if (equal(tok, ","))
+                    tok = skip(tok, ",");
+            }
+            node->args = head.next;
+            node->args_num = args_num;
+            *rest = skip(tok, ")");
             return node;
         }
         

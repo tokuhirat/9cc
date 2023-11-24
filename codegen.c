@@ -50,8 +50,16 @@ static void gen_expr(Node *node) {
         pop("rdi");
         printf("  mov [rdi], rax\n");
         return;
-    case ND_FUNCALL:
-        printf("  mov rax, 0\n");
+    case ND_FUNCALL:        
+        for (Node *args = node->args; args; args = args->next) {
+            gen_expr(args);
+            push();
+        }
+        printf("  mov rax, %d\n", node->args_num);
+        static char *arg_reg[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+        for (int i = 0; i < node->args_num; i++) {
+            pop(arg_reg[node->args_num - i - 1]);
+        }
         printf("  call %s\n", node->funcname);
         return;
     }

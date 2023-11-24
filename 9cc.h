@@ -101,6 +101,8 @@ struct Node {
 
     // 関数呼び出し
     char *funcname;
+    Node *args;
+    int args_num;
 
     Obj *var;       // kind == ND_VARのとき使用
     int val;        // kind == ND_NUMのとき使用
