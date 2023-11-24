@@ -53,6 +53,12 @@ static Node *new_var_node(Obj *var, Token *tok) {
     return node;
 }
 
+static Node *new_func_node(Obj *var, Token *tok) {
+    Node *node = new_node(ND_FUNCALL, tok);
+    node->var = var;
+    return node;
+}
+
 static Obj *new_lvar(char *name) {
     Obj *var = calloc(1, sizeof(Obj));
     var->name = name;
@@ -263,7 +269,7 @@ static Node *unary(Token **rest, Token *tok) {
     return primary(rest, tok);
 }
 
-// primary = "(" expr ")" | ident | num
+// primary = "(" expr ")" | ident ("(" ")")? | num
 static Node *primary(Token **rest, Token *tok) {
     // 次のトークンが"("なら、"(" expr ")"のはず
     if (equal(tok, "(")) {
@@ -273,9 +279,18 @@ static Node *primary(Token **rest, Token *tok) {
     }
 
     if (tok->kind == TK_IDENT) {
+        // "("があれば関数呼び出し
+        if (equal(tok->next, "(")) {
+            Node *node = new_node(ND_FUNCALL, tok);
+            node->funcname = strndup(tok->loc, tok->len);
+            *rest = skip(tok->next->next, ")");
+            return node;
+        }
+        
+        // 変数
         Obj *var = find_var(tok);
         if (!var)
-            var = new_lvar(strndup(tok->loc, tok->len));        
+            var = new_lvar(strndup(tok->loc, tok->len));
         *rest = tok->next;
         return new_var_node(var, tok);
     }

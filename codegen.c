@@ -50,6 +50,10 @@ static void gen_expr(Node *node) {
         pop("rdi");
         printf("  mov [rdi], rax\n");
         return;
+    case ND_FUNCALL:
+        printf("  mov rax, 0\n");
+        printf("  call %s\n", node->funcname);
+        return;
     }
 
     gen_expr(node->rhs);
