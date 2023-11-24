@@ -53,12 +53,6 @@ static Node *new_var_node(Obj *var, Token *tok) {
     return node;
 }
 
-static Node *new_func_node(Obj *var, Token *tok) {
-    Node *node = new_node(ND_FUNCALL, tok);
-    node->var = var;
-    return node;
-}
-
 static Obj *new_lvar(char *name) {
     Obj *var = calloc(1, sizeof(Obj));
     var->name = name;
@@ -269,9 +263,29 @@ static Node *unary(Token **rest, Token *tok) {
     return primary(rest, tok);
 }
 
-// primary = "(" expr ")" | ident args? | num
-// args = "(" (")" 
-//            | expr ("," expr)* ")") 
+// funcall = ident "(" (assign ("," assign)*)? ")"
+static Node *funcall(Token **rest, Token *tok) {
+    Token *start = tok;
+    tok = tok->next->next;
+
+    Node head = {};
+    Node *cur = &head;
+
+    while (!equal(tok, ")")) {
+        if (cur != &head)
+            tok = skip(tok, ",");
+        cur = cur->next = assign(&tok, tok);
+    }
+
+    *rest = skip(tok, ")");
+
+    Node *node = new_node(ND_FUNCALL, start);
+    node->funcname = strndup(start->loc, start->len);
+    node->args = head.next;
+    return node;
+}
+
+// primary = "(" expr ")" | ident func-args? | num
 static Node *primary(Token **rest, Token *tok) {
     // 次のトークンが"("なら、"(" expr ")"のはず
     if (equal(tok, "(")) {
@@ -282,47 +296,8 @@ static Node *primary(Token **rest, Token *tok) {
 
     if (tok->kind == TK_IDENT) {
         // "("があれば関数呼び出し
-        if (equal(tok->next, "(")) {
-            Node *node = new_node(ND_FUNCALL, tok);
-            node->funcname = strndup(tok->loc, tok->len);
-
-            tok = tok->next->next;
-
-            // // 引数を持たない場合
-            // if (equal(tok, ")")) {
-            //     *rest = tok->next;
-            //     return node;
-            // }
-            // // 引数を持つ場合
-            // Node head = {};
-            // Node *args = head.next;
-            // while (!equal(tok, ")")) {
-            //     args = args->next = expr(&tok, tok);
-            //     if (equal(tok, ",")) {
-            //         tok = skip(tok, ",");
-            //         continue;
-            //     } else {
-            //         node->args = head.next;
-            //         *rest = skip(tok, ")");
-            //         return node;
-            //     }
-            // }
-            /////////////////////////////
-            // 引数のパース
-            Node head = {};
-            Node *args = &head;
-            int args_num = 0;
-            while (!equal(tok, ")")) {
-                args = args->next = expr(&tok, tok);
-                args_num++;
-                if (equal(tok, ","))
-                    tok = skip(tok, ",");
-            }
-            node->args = head.next;
-            node->args_num = args_num;
-            *rest = skip(tok, ")");
-            return node;
-        }
+        if (equal(tok->next, "("))
+            return funcall(rest, tok);
         
         // 変数
         Obj *var = find_var(tok);
