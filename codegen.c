@@ -164,8 +164,6 @@ static void gen_stmt(Node *node) {
     case ND_EXPR_STMT:
         gen_expr(node->lhs);
         return;
-    case ND_DEC:
-        return;
     }
 
     error_tok(node->tok, "invalud statement");

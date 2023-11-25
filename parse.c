@@ -2,6 +2,8 @@
 
 Obj *locals;
 
+static Type *declspec(Token **rest, Token *tok);
+static Type *declarator(Token **rest, Token *tok, Type *ty);
 static Node *declaration(Token **rest, Token *tok);
 static Node *compound_stmt(Token **rest, Token *tok);
 static Node *stmt(Token **rest, Token *tok);
@@ -76,16 +78,43 @@ static Type *declspec(Token **rest, Token *tok) {
     return ty_int;
 }
 
-// declarator = "*"* ident
+// type-suffix = ("(" func-params? ")")?
+// func-params = param ("," param)*
+// param       = declspec declarator
+static Type *type_suffix(Token **rest, Token *tok, Type *ty) {
+    if (equal(tok, "(")) {
+        tok = tok->next;
+
+        Type head = {};
+        Type *cur = &head;
+
+        while (!equal(tok, ")")) {
+            if (cur != &head)
+                tok = skip(tok, ",");
+            Type *basety = declspec(&tok, tok);
+            Type *ty = declarator(&tok, tok, basety);
+            cur = cur->next = copy_type(ty);
+        }
+
+        ty = func_type(ty);
+        ty->params = head.next;
+        *rest = tok->next;
+        return ty;
+    }
+
+    *rest = tok;
+    return ty;
+}
+
+// declarator = "*"* ident type-suffix
 static Type *declarator(Token **rest, Token *tok, Type *ty) {
     while (consume(&tok, tok, "*"))
         ty = pointer_to(ty);
     
     if (tok->kind != TK_IDENT)
         error_tok(tok, "expected a variable name");
-    
+    ty = type_suffix(rest, tok->next, ty);
     ty->name = tok;
-    *rest = tok->next;
     return ty;
 }
 
@@ -436,37 +465,25 @@ static Node *primary(Token **rest, Token *tok) {
     error_tok(tok, "expected an expression");
 }
 
+static void create_param_lvars(Type *param) {
+    if (param) {
+        create_param_lvars(param->next);
+        new_lvar(get_ident(param->name), param);
+    }
+}
+
 // Function = type ident "(" params* ")" "{" compound_stmt
 static Function* function(Token **rest, Token *tok) {
+    Type *ty = declspec(&tok, tok);
+    ty = declarator(&tok, tok, ty);
+
     locals = NULL;
 
-    // type
-    tok = skip(tok, "int");
-
     Function *fn = calloc(1, sizeof(Function));
-    fn->name = strndup(tok->loc, tok->len);
-    tok = skip(tok->next, "(");
-
-    char *p[6] = {};
-    int i = 0;
-    while (!equal(tok, ")")) {
-        //type
-        tok = skip(tok, "int");
-
-        p[i] = strndup(tok->loc, tok->len);
-        i++;
-        tok = tok->next;
-        if (equal(tok, ","))
-            tok = skip(tok, ",");
-    }
-
-    for (int i = 5; i >= 0; i--)
-        if (p[i])
-            new_lvar(p[i], ty_int);
-    
+    fn->name = get_ident(ty->name);
+    create_param_lvars(ty->params);
     fn->params = locals;
 
-    tok = skip(tok, ")");
     tok = skip(tok, "{");
     fn->body = compound_stmt(rest, tok);
     fn->locals = locals;

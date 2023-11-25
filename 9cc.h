@@ -57,7 +57,7 @@ struct Obj {
 typedef struct Function Function;
 struct Function {
     Function *next;
-    char * name;
+    char *name;
     Obj *params;
 
     Node *body;
@@ -87,7 +87,6 @@ typedef enum {
     ND_EXPR_STMT,  // Expression statement
     ND_VAR,        // 変数
     ND_NUM,        // 整数
-    ND_DEC,        // 変数宣言
 } NodeKind;
 
 // 抽象構文木のノードの型
@@ -128,6 +127,7 @@ Function *parse(Token *tok);
 typedef enum {
     TY_INT,
     TY_PTR,
+    TY_FUNC,
 } TypeKind;
 
 struct Type {
@@ -138,12 +138,19 @@ struct Type {
 
     // Declaration
     Token *name;
+
+    // Function type
+    Type *return_ty;
+    Type *params;
+    Type *next;
 };
 
 extern Type *ty_int;
 
 bool is_integer(Type *ty);
+Type *copy_type(Type *ty);
 Type *pointer_to(Type *base);
+Type *func_type(Type *return_ty);
 void add_type(Node *node);
 
 //
