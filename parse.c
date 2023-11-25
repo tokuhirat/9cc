@@ -321,8 +321,24 @@ static Function* function(Token **rest, Token *tok) {
 
     Function *fn = calloc(1, sizeof(Function));
     fn->name = strndup(tok->loc, tok->len);
-    tok = tok->next;
-    tok = skip(tok, "(");
+    tok = skip(tok->next, "(");
+
+    char *p[6] = {};
+    int i = 0;
+    while (!equal(tok, ")")) {
+        p[i] = strndup(tok->loc, tok->len);
+        i++;
+        tok = tok->next;
+        if (equal(tok, ","))
+            tok = skip(tok, ",");
+    }
+
+    for (int i = 5; i >= 0; i--)
+        if (p[i])
+            new_lvar(p[i]);
+    
+    fn->args = locals;
+
     tok = skip(tok, ")");
     tok = skip(tok, "{");
     fn->body = compound_stmt(rest, tok);

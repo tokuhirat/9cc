@@ -181,6 +181,11 @@ void codegen(Function *prog) {
         printf("  push rbp\n");
         printf("  mov rbp, rsp\n");
         printf("  sub rsp, %d\n", fn->stack_size);
+        int arg_idx = 0;
+        for (Obj *var = fn->args; var; var = var->next) {
+            printf("  mov [rbp + %d], %s\n", var->offset, argreg[arg_idx]);
+            arg_idx++;
+        }
 
         gen_stmt(fn->body);
         assert(depth == 0);
