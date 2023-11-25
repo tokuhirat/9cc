@@ -55,7 +55,8 @@ typedef struct Function Function;
 struct Function {
     Function *next;
     char * name;
-    Obj *args;
+    Obj *params;
+
     Node *body;
     Obj *locals;
     int stack_size;

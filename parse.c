@@ -337,7 +337,7 @@ static Function* function(Token **rest, Token *tok) {
         if (p[i])
             new_lvar(p[i]);
     
-    fn->args = locals;
+    fn->params = locals;
 
     tok = skip(tok, ")");
     tok = skip(tok, "{");
