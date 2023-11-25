@@ -65,6 +65,7 @@ static Obj *new_lvar(char *name) {
 //      | "if" "(" expr ")" stmt ("else" stmt)?
 //      | "for" "(" expr-stmt expr? ";" expr? ")" stmt
 //      | "while" "(" expr ")" stmt
+//      | "int" ident ";"
 //      | "{" compound-stmt
 //      | expr-stmt
 static Node *stmt(Token **rest, Token *tok) {
@@ -113,6 +114,15 @@ static Node *stmt(Token **rest, Token *tok) {
         node->then = stmt(rest, tok);
         return node;
     }
+
+    if (equal(tok, "int")) {
+        tok = tok->next;
+        new_lvar(strndup(tok->loc, tok->len));
+        Node *node = new_node(ND_DEC, tok);
+        *rest = tok->next;
+        return node;
+    }
+
     if (equal(tok, "{"))
         return compound_stmt(rest, tok->next);
 
@@ -305,8 +315,8 @@ static Node *primary(Token **rest, Token *tok) {
         
         // 変数
         Obj *var = find_var(tok);
-        if (!var)
-            var = new_lvar(strndup(tok->loc, tok->len));
+        if (!var) 
+            error_tok(tok, "not declared");
         *rest = tok->next;
         return new_var_node(var, tok);
     }
@@ -320,8 +330,12 @@ static Node *primary(Token **rest, Token *tok) {
     error_tok(tok, "expected an expression");
 }
 
+// Function = type ident "(" params* ")" "{" compound_stmt
 static Function* function(Token **rest, Token *tok) {
     locals = NULL;
+
+    // type
+    tok = skip(tok, "int");
 
     Function *fn = calloc(1, sizeof(Function));
     fn->name = strndup(tok->loc, tok->len);
@@ -330,6 +344,9 @@ static Function* function(Token **rest, Token *tok) {
     char *p[6] = {};
     int i = 0;
     while (!equal(tok, ")")) {
+        //type
+        tok = skip(tok, "int");
+
         p[i] = strndup(tok->loc, tok->len);
         i++;
         tok = tok->next;
@@ -350,7 +367,7 @@ static Function* function(Token **rest, Token *tok) {
     return fn;
 }
 
-// program = stmt*
+// program = Function*
 Function *parse(Token *tok) {
     Function head = {};
     Function *cur = &head;

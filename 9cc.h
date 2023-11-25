@@ -84,6 +84,7 @@ typedef enum {
     ND_EXPR_STMT,  // Expression statement
     ND_VAR,        // 変数
     ND_NUM,        // 整数
+    ND_DEC,        // 変数宣言
 } NodeKind;
 
 // 抽象構文木のノードの型
