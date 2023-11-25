@@ -4,6 +4,8 @@ static int depth;
 static char *argreg[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 static Function *current_fn;
 
+static void gen_expr(Node *node);
+
 static int count(void) {
     static int i = 1;
     return i++;
@@ -24,8 +26,12 @@ static int align_to(int n, int align) {
 }
 
 static void gen_addr(Node *node) {
-    if (node->kind == ND_VAR) {
+    switch (node->kind) {
+    case ND_VAR:
         printf("  lea rax, [rbp + %d]\n", node->var->offset);
+        return;
+    case ND_DEREF:
+        gen_expr(node->lhs);
         return;
     }
 
@@ -51,6 +57,13 @@ static void gen_expr(Node *node) {
         gen_expr(node->rhs);
         pop("rdi");
         printf("  mov [rdi], rax\n");
+        return;
+    case ND_DEREF:
+        gen_expr(node->lhs);
+        printf("  mov rax, [rax]\n");
+        return;
+    case ND_ADDR:
+        gen_addr(node->lhs);
         return;
     case ND_FUNCALL: {
         int nargs = 0;
