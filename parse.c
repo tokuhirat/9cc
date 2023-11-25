@@ -130,7 +130,7 @@ static Node *declaration(Token **rest, Token *tok) {
         if (i++ > 0)
             tok = skip(tok, ",");
         
-        Type *ty  = declarator(&tok, tok, basety);
+        Type *ty = declarator(&tok, tok, basety);
         Obj *var = new_lvar(get_ident(ty->name), ty);
 
         if (!equal(tok, "="))
@@ -249,7 +249,7 @@ static Node *assign(Token **rest, Token *tok) {
     Node *node = equality(&tok, tok);
 
     if (equal(tok, "="))
-        node = new_binary(ND_ASSIGN, node, assign(&tok, tok->next), tok);
+        return new_binary(ND_ASSIGN, node, assign(rest, tok->next), tok);
     *rest = tok;
     return node;
 }
@@ -325,7 +325,7 @@ static Node *new_add(Node *lhs, Node *rhs, Token *tok) {
 
     // ptr + num
     rhs = new_binary(ND_MUL, rhs, new_num(8, tok), tok);
-    return new_binary(ND_ADD, lhs, rhs, tok);  
+    return new_binary(ND_ADD, lhs, rhs, tok);
 }
 
 // '-' operatorが引数によって異なる挙動を示すことに対応。
@@ -473,7 +473,7 @@ static void create_param_lvars(Type *param) {
 }
 
 // Function = type ident "(" params* ")" "{" compound_stmt
-static Function* function(Token **rest, Token *tok) {
+static Function *function(Token **rest, Token *tok) {
     Type *ty = declspec(&tok, tok);
     ty = declarator(&tok, tok, ty);
 
