@@ -457,7 +457,35 @@ static Node *funcall(Token **rest, Token *tok) {
     return node;
 }
 
-// primary = "(" expr ")" | ident func-args? | num
+// array_slice
+static Node *array_slice(Token **rest, Token *tok) {
+    Node *lhs, *rhs;
+    Token *start = tok;
+
+    if(tok->kind == TK_IDENT) {
+        Obj *var = find_var(tok);
+        if (!var) 
+            error_tok(tok, "undefined variable");
+        lhs = new_var_node(var, tok);
+        tok = skip(tok->next, "[");
+        rhs = new_num(get_number(tok), tok);
+    } else {
+        rhs = new_num(get_number(tok), tok);
+        tok = skip(tok->next, "[");
+        Obj *var = find_var(tok);
+        if (!var) 
+            error_tok(tok, "undefined variable");
+        lhs = new_var_node(var, tok);
+    }
+    Node *add = new_add(lhs, rhs, start);
+    *rest = skip(tok->next, "]");
+    return new_unary(ND_DEREF, add, start);
+}
+
+// primary = "(" expr ")"
+//         | ident func-args?
+//         | ident array_slice
+//         | num
 static Node *primary(Token **rest, Token *tok) {
     // 次のトークンが"("なら、"(" expr ")"のはず
     if (equal(tok, "(")) {
@@ -471,6 +499,10 @@ static Node *primary(Token **rest, Token *tok) {
         if (equal(tok->next, "("))
             return funcall(rest, tok);
         
+        // "["があれば配列の添字
+        if (equal(tok->next, "["))
+            return array_slice(rest, tok);
+        
         // 変数
         Obj *var = find_var(tok);
         if (!var) 
@@ -480,6 +512,10 @@ static Node *primary(Token **rest, Token *tok) {
     }
 
     if (tok->kind == TK_NUM) {
+        // "["があれば配列の添字
+        if (equal(tok->next, "[")) {
+            return array_slice(rest, tok);
+        }
         Node *node = new_num(tok->val, tok);
         *rest = tok->next;
         return node;
