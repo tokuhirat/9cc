@@ -14,6 +14,7 @@ static Node *equality(Token **rest, Token *tok);
 static Node *relational(Token **rest, Token *tok);
 static Node *add(Token **rest, Token *tok);
 static Node *mul(Token **rest, Token *tok);
+static Node *postfix(Token **rest, Token *tok);
 static Node *unary(Token **rest, Token *tok);
 static Node *primary(Token **rest, Token *tok);
 
@@ -422,7 +423,7 @@ static Node *mul(Token **rest, Token *tok) {
 }
 
 // unary = ("+" | "-" | "*" | "&") unary
-//       | primary
+//       | postfix
 static Node *unary(Token **rest, Token *tok) {
     if (equal(tok, "+"))
         return unary(rest, tok->next);
@@ -432,7 +433,22 @@ static Node *unary(Token **rest, Token *tok) {
         return new_unary(ND_ADDR, unary(rest, tok->next), tok);
     if (equal(tok, "*"))
         return new_unary(ND_DEREF, unary(rest, tok->next), tok);
-    return primary(rest, tok);
+    return postfix(rest, tok);
+}
+
+// postfix = primary ("[" expr "]")*
+static Node *postfix(Token **rest, Token *tok) {
+    Node *node = primary(&tok, tok);
+
+    while (equal(tok, "[")) {
+        // x[y] is short for *(x+y)
+        Token *start = tok;
+        Node *idx = expr(&tok, tok->next);
+        tok = skip(tok, "]");
+        node = new_unary(ND_DEREF, new_add(node, idx, start), start);
+    }
+    *rest = tok;
+    return node;
 }
 
 // funcall = ident "(" (assign ("," assign)*)? ")"
@@ -457,38 +473,7 @@ static Node *funcall(Token **rest, Token *tok) {
     return node;
 }
 
-// array_slice
-static Node *array_slice(Token **rest, Token *tok, Node *node) {
-    Node *lhs, *rhs;
-    Token *start = tok;
-
-    if(node->kind != ND_NUM) {
-        lhs = node;
-        tok = skip(tok, "[");
-        rhs = new_num(get_number(tok), tok);
-    } else {
-        rhs = node;
-        tok = skip(tok, "[");
-        Obj *var = find_var(tok);
-        if (!var) 
-            error_tok(tok, "undefined variable");
-        lhs = new_var_node(var, tok);
-    }
-    Node *add = new_add(lhs, rhs, start);
-    Node *deref = new_unary(ND_DEREF, add, start);
-    tok = skip(tok->next, "]");
-
-    if (!equal(tok, "[")) {
-        *rest = tok;
-        return deref;
-    }
-    return array_slice(rest, tok, deref);
-}
-
-// primary = "(" expr ")"
-//         | ident func-args?
-//         | ident array_slice
-//         | num
+// primary = "(" expr ")" | ident func-args? | num
 static Node *primary(Token **rest, Token *tok) {
     // 次のトークンが"("なら、"(" expr ")"のはず
     if (equal(tok, "(")) {
@@ -506,24 +491,12 @@ static Node *primary(Token **rest, Token *tok) {
         Obj *var = find_var(tok);
         if (!var) 
             error_tok(tok, "undefined variable");
-        
-        Node *node = new_var_node(var, tok);
-
-        // "["があれば配列の添字
-        if (equal(tok->next, "["))
-            return array_slice(rest, tok->next, node);
-
         *rest = tok->next;
-        return node;
+        return new_var_node(var, tok);        
     }
 
     if (tok->kind == TK_NUM) {
         Node *node = new_num(tok->val, tok);
-
-        // "["があれば配列の添字
-        if (equal(tok->next, "["))
-            return array_slice(rest, tok->next, node);
-
         *rest = tok->next;
         return node;
     }
