@@ -458,28 +458,31 @@ static Node *funcall(Token **rest, Token *tok) {
 }
 
 // array_slice
-static Node *array_slice(Token **rest, Token *tok) {
+static Node *array_slice(Token **rest, Token *tok, Node *node) {
     Node *lhs, *rhs;
     Token *start = tok;
 
-    if(tok->kind == TK_IDENT) {
-        Obj *var = find_var(tok);
-        if (!var) 
-            error_tok(tok, "undefined variable");
-        lhs = new_var_node(var, tok);
-        tok = skip(tok->next, "[");
+    if(node->kind != ND_NUM) {
+        lhs = node;
+        tok = skip(tok, "[");
         rhs = new_num(get_number(tok), tok);
     } else {
-        rhs = new_num(get_number(tok), tok);
-        tok = skip(tok->next, "[");
+        rhs = node;
+        tok = skip(tok, "[");
         Obj *var = find_var(tok);
         if (!var) 
             error_tok(tok, "undefined variable");
         lhs = new_var_node(var, tok);
     }
     Node *add = new_add(lhs, rhs, start);
-    *rest = skip(tok->next, "]");
-    return new_unary(ND_DEREF, add, start);
+    Node *deref = new_unary(ND_DEREF, add, start);
+    tok = skip(tok->next, "]");
+
+    if (!equal(tok, "[")) {
+        *rest = tok;
+        return deref;
+    }
+    return array_slice(rest, tok, deref);
 }
 
 // primary = "(" expr ")"
@@ -499,24 +502,28 @@ static Node *primary(Token **rest, Token *tok) {
         if (equal(tok->next, "("))
             return funcall(rest, tok);
         
-        // "["があれば配列の添字
-        if (equal(tok->next, "["))
-            return array_slice(rest, tok);
-        
         // 変数
         Obj *var = find_var(tok);
         if (!var) 
             error_tok(tok, "undefined variable");
+        
+        Node *node = new_var_node(var, tok);
+
+        // "["があれば配列の添字
+        if (equal(tok->next, "["))
+            return array_slice(rest, tok->next, node);
+
         *rest = tok->next;
-        return new_var_node(var, tok);
+        return node;
     }
 
     if (tok->kind == TK_NUM) {
-        // "["があれば配列の添字
-        if (equal(tok->next, "[")) {
-            return array_slice(rest, tok);
-        }
         Node *node = new_num(tok->val, tok);
+
+        // "["があれば配列の添字
+        if (equal(tok->next, "["))
+            return array_slice(rest, tok->next, node);
+
         *rest = tok->next;
         return node;
     }
