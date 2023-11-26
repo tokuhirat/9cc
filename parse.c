@@ -104,18 +104,26 @@ static Type *func_params(Token **rest, Token *tok, Type *ty) {
     return ty;
 }
 
+// array_suffix = ( "[" num "]" )*
+static Type *array_suffix(Token **rest, Token *tok, Type *ty) {
+    int sz = get_number(tok->next);
+    tok = skip(tok->next->next, "]");
+    if (!equal(tok, "[")) {
+        *rest = tok;
+        return array_of(ty, sz);
+    }
+    return array_of(array_suffix(rest, tok, ty), sz);
+}
+
 // type-suffix = "(" func-params
-//             | "[" num "]"
+//             | array_suffix
 //             | ε
 static Type *type_suffix(Token **rest, Token *tok, Type *ty) {
     if (equal(tok, "("))
         return func_params(rest, tok->next, ty);
 
-    if (equal(tok, "[")) {
-        int sz = get_number(tok->next);
-        *rest = skip(tok->next->next, "]");
-        return array_of(ty, sz);
-    }
+    if (equal(tok, "["))
+        return array_suffix(rest, tok, ty);
 
     *rest = tok;
     return ty;
