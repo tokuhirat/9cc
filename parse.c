@@ -422,9 +422,17 @@ static Node *mul(Token **rest, Token *tok) {
     }
 }
 
-// unary = ("+" | "-" | "*" | "&") unary
+// unary = "sizeof" unary
+//       | ("+" | "-" | "*" | "&") unary
 //       | postfix
 static Node *unary(Token **rest, Token *tok) {
+    if (equal(tok, "sizeof")) {
+        Token *start = tok;
+        Node *node = unary(rest, tok->next);
+        add_type(node);
+        int sz = node->ty->size;
+        return new_num(sz, start);
+    }
     if (equal(tok, "+"))
         return unary(rest, tok->next);
     if (equal(tok, "-"))
