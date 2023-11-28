@@ -44,22 +44,22 @@ Token *tokenize(char *input);
 // parse.c
 //
 
-// ローカル変数の型
+// ローカル変数 or 関数
 typedef struct  Obj Obj;
 struct Obj {
     Obj *next;
-    char *name;  // 変数の名前
+    char *name;    // 変数の名前
     Type *ty;
-    int offset;  // RBPからのオフセット
-};
+    bool is_local; // local or global/function
 
-// Function
-typedef struct Function Function;
-struct Function {
-    Function *next;
-    char *name;
+    // local variable
+    int offset;    // RBPからのオフセット
+
+    // global variable/function
+    bool is_function;
+
+    // function
     Obj *params;
-
     Node *body;
     Obj *locals;
     int stack_size;
@@ -117,7 +117,7 @@ struct Node {
     int val;        // kind == ND_NUMのとき使用
 };
 
-Function *parse(Token *tok);
+Obj *parse(Token *tok);
 
 
 //
@@ -163,4 +163,4 @@ void add_type(Node *node);
 // codegen.c
 //
 
-void codegen(Function *prog);
+void codegen(Obj *prog);
