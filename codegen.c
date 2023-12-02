@@ -202,43 +202,53 @@ static void assign_lvar_offsets(Obj *prog) {
     }
 }
 
+static void emit_data(Obj *prog) {
+    for (Obj *var = prog; var; var = var->next) {
+        if (var->is_function)
+            continue;
+
+        printf("  .data\n");
+        printf("  .globl %s\n", var->name);
+        printf("%s:\n", var->name);
+        printf("  .zero %d\n", var->ty->size);
+    }
+}
+
+static void emit_text(Obj *prog) {
+    for (Obj *fn = prog; fn; fn = fn->next) {
+        if (!fn->is_function)
+            continue;
+
+        printf("  .globl %s\n", fn->name);
+        printf("  .text\n");
+        printf("%s:\n", fn->name);
+        current_fn = fn;
+        
+        // Prologue
+        printf("  push rbp\n");
+        printf("  mov rbp, rsp\n");
+        printf("  sub rsp, %d\n", fn->stack_size);
+        
+        int i = 0;
+        for (Obj *var = fn->params; var; var = var->next)
+            printf("  mov [rbp + %d], %s\n", var->offset, argreg[i++]);
+
+        gen_stmt(fn->body);
+        assert(depth == 0);
+
+        // Epilogue
+        printf(".L.return.%s:\n", fn->name);
+        printf("  mov rsp, rbp\n");
+        printf("  pop rbp\n");
+        printf("  ret\n");
+    }
+}
+
 void codegen(Obj *prog) {
     assign_lvar_offsets(prog);
 
     printf(".intel_syntax noprefix\n");
 
-    for (Obj *fn = prog; fn; fn = fn->next) {
-        if (fn->is_function)
-            continue;
-        printf("  .data\n");
-        printf("  .globl %s\n", fn->name);
-        printf("%s:\n", fn->name);
-        printf("  .zero %d\n", fn->ty->size);
-    }
-
-    for (Obj *fn = prog; fn; fn = fn->next) {
-        if (fn->is_function) {
-            printf("  .globl %s\n", fn->name);
-            printf("  .text\n");
-            printf("%s:\n", fn->name);
-            current_fn = fn;
-            
-            // Prologue
-            printf("  push rbp\n");
-            printf("  mov rbp, rsp\n");
-            printf("  sub rsp, %d\n", fn->stack_size);
-            int i = 0;
-            for (Obj *var = fn->params; var; var = var->next)
-                printf("  mov [rbp + %d], %s\n", var->offset, argreg[i++]);
-
-            gen_stmt(fn->body);
-            assert(depth == 0);
-
-            // Epilogue
-            printf(".L.return.%s:\n", fn->name);
-            printf("  mov rsp, rbp\n");
-            printf("  pop rbp\n");
-            printf("  ret\n");
-        }
-    }
+    emit_data(prog);
+    emit_text(prog);
 }
