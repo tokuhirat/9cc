@@ -1,7 +1,8 @@
 #include "9cc.h"
 
 static int depth;
-static char *argreg[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+static char *argreg8[] = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
+static char *argreg64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 static Obj *current_fn;
 
 static void gen_expr(Node *node);
@@ -49,13 +50,20 @@ static void load(Type *ty) {
     if (ty->kind == TY_ARRAY) {
         return;
     }
-    printf("  mov rax, [rax]\n");
+    if (ty->size == 1)
+        printf("  movsx eax, BYTE PTR [rax]\n");
+    else
+        printf("  mov rax, [rax]\n");
 }
 
 // Store rax to an address that the stack top is pointing to.
-static void store(void) {
-    pop("rdi\n");
-    printf("  mov [rdi], rax\n");
+static void store(Type *ty) {
+    pop("rdi");
+
+    if (ty->size == 1)
+        printf("  mov [rdi], al\n");
+    else
+        printf("  mov [rdi], rax\n");
 }
 
 static void gen_expr(Node *node) {
@@ -75,7 +83,7 @@ static void gen_expr(Node *node) {
         gen_addr(node->lhs);
         push();
         gen_expr(node->rhs);
-        store();
+        store(node->ty);
         return;
     case ND_DEREF:
         gen_expr(node->lhs);
@@ -93,7 +101,7 @@ static void gen_expr(Node *node) {
         }
 
         for (int i = nargs - 1; i >= 0; i--)
-            pop(argreg[i]);
+            pop(argreg64[i]);
         
         printf("  mov rax, %d\n", nargs);
         printf("  call %s\n", node->funcname);
@@ -230,8 +238,12 @@ static void emit_text(Obj *prog) {
         printf("  sub rsp, %d\n", fn->stack_size);
         
         int i = 0;
-        for (Obj *var = fn->params; var; var = var->next)
-            printf("  mov [rbp + %d], %s\n", var->offset, argreg[i++]);
+        for (Obj *var = fn->params; var; var = var->next) {
+            if (var->ty->size == 1)
+                printf("  mov [rbp + %d], %s\n", var->offset, argreg8[i++]);
+            else
+                printf("  mov [rbp + %d], %s\n", var->offset, argreg64[i++]);
+        }
 
         gen_stmt(fn->body);
         assert(depth == 0);
