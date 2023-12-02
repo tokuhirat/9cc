@@ -28,7 +28,13 @@ static int align_to(int n, int align) {
 static void gen_addr(Node *node) {
     switch (node->kind) {
     case ND_VAR:
-        printf("  lea rax, [rbp + %d]\n", node->var->offset);
+        if (node->var->is_local) {
+            // Local variable
+            printf("  lea rax, [rbp + %d]\n", node->var->offset);
+        } else {
+            // Global variable
+            printf("  lea rax, [rip + %s]\n", node->var->name);
+        }
         return;
     case ND_DEREF:
         gen_expr(node->lhs);
@@ -202,29 +208,37 @@ void codegen(Obj *prog) {
     printf(".intel_syntax noprefix\n");
 
     for (Obj *fn = prog; fn; fn = fn->next) {
-        if (!fn->is_function)
+        if (fn->is_function)
             continue;
-
+        printf("  .data\n");
         printf("  .globl %s\n", fn->name);
-        printf("  .text\n");
         printf("%s:\n", fn->name);
-        current_fn = fn;
-        
-        // Prologue
-        printf("  push rbp\n");
-        printf("  mov rbp, rsp\n");
-        printf("  sub rsp, %d\n", fn->stack_size);
-        int i = 0;
-        for (Obj *var = fn->params; var; var = var->next)
-            printf("  mov [rbp + %d], %s\n", var->offset, argreg[i++]);
+        printf("  .zero %d\n", fn->ty->size);
+    }
 
-        gen_stmt(fn->body);
-        assert(depth == 0);
+    for (Obj *fn = prog; fn; fn = fn->next) {
+        if (fn->is_function) {
+            printf("  .globl %s\n", fn->name);
+            printf("  .text\n");
+            printf("%s:\n", fn->name);
+            current_fn = fn;
+            
+            // Prologue
+            printf("  push rbp\n");
+            printf("  mov rbp, rsp\n");
+            printf("  sub rsp, %d\n", fn->stack_size);
+            int i = 0;
+            for (Obj *var = fn->params; var; var = var->next)
+                printf("  mov [rbp + %d], %s\n", var->offset, argreg[i++]);
 
-        // Epilogue
-        printf(".L.return.%s:\n", fn->name);
-        printf("  mov rsp, rbp\n");
-        printf("  pop rbp\n");
-        printf("  ret\n");
+            gen_stmt(fn->body);
+            assert(depth == 0);
+
+            // Epilogue
+            printf(".L.return.%s:\n", fn->name);
+            printf("  mov rsp, rbp\n");
+            printf("  pop rbp\n");
+            printf("  ret\n");
+        }
     }
 }
