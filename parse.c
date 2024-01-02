@@ -578,8 +578,7 @@ static Token *global_variable(Token *tok, Type *basety) {
 }
 
 static bool is_function(Token *tok) {
-    // if (equal(tok, ";"))
-    if (!equal(tok->next, "("))
+    if (equal(tok, ";"))
         return false;
     
     Type dummy = {};
