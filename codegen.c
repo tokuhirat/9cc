@@ -34,7 +34,7 @@ static void gen_addr(Node *node) {
             printf("  lea rax, [rbp + %d]\n", node->var->offset);
         } else {
             // Global variable
-            printf("  lea rax, [rip + %s]\n", node->var->name);
+            printf("  lea rax, %s[rip]\n", node->var->name);
         }
         return;
     case ND_DEREF:
