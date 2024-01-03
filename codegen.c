@@ -7,6 +7,7 @@ static char *argreg64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 static Obj *current_fn;
 
 static void gen_expr(Node *node);
+static void gen_stmt(Node *node);
 
 static void println(char *fmt, ...) {
     va_list ap;
@@ -100,6 +101,10 @@ static void gen_expr(Node *node) {
         return;
     case ND_ADDR:
         gen_addr(node->lhs);
+        return;
+    case ND_STMT_EXPR:
+        for (Node *n = node->body; n; n = n->next)
+            gen_stmt(n);
         return;
     case ND_FUNCALL: {
         int nargs = 0;

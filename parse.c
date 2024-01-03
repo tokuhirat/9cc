@@ -562,8 +562,20 @@ static Node *funcall(Token **rest, Token *tok) {
     return node;
 }
 
-// primary = "(" expr ")" | ident func-args? | str | num
+// primary = "(" "{" stmt+ "}" ")"
+//         | "(" expr ")"
+//         | ident func-args?
+//         | str
+//         | num
 static Node *primary(Token **rest, Token *tok) {
+    if (equal(tok, "(") && equal(tok->next, "{")) {
+        // GNU statement expressionの場合
+        Node *node = new_node(ND_STMT_EXPR, tok);
+        node->body = compound_stmt(&tok, tok->next->next)->body;
+        *rest = skip(tok, ")");
+        return node;
+    }
+
     // 次のトークンが"("なら、"(" expr ")"のはず
     if (equal(tok, "(")) {
         Node *node = expr(&tok, tok->next);
