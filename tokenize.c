@@ -150,6 +150,23 @@ static Token *tokenize(char *filename, char *p) {
             continue;
         }
 
+        // 行コメントをスキップ
+        if (strncmp(p, "//", 2) == 0) {
+            p += 2;
+            while (*p != '\n')
+                p++;
+            continue;
+        }
+
+        // ブロックコメントをスキップ
+        if (strncmp(p, "/*", 2) == 0) {
+            char *q = strstr(p + 2, "*/");
+            if (!q)
+                error_at(p, "コメントが閉じられていません");
+            p = q + 2;
+            continue;
+        }
+
         // 数値の場合
         if (isdigit(*p)) {
             cur = cur->next = new_token(TK_NUM, p, p);
